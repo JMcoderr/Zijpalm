@@ -81,6 +81,34 @@
                                 <span class="px-1">-</span>
                                 <span class="font-semibold">{{ $match->awayTeam?->name ?? 'Nog te bepalen' }}</span>
                                 <span class="text-zinc-600">· {{ $match->kickoff->format('d-m-Y H:i') }}</span>
+                                @php($homeScoreField = 'home_score_'.$match->id)
+                                @php($awayScoreField = 'away_score_'.$match->id)
+                                <form method="POST" action="{{ route('admin.tournaments.matches.result', ['tournament' => $tournament, 'match' => $match]) }}" class="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                                    @csrf
+                                    @method('PUT')
+                                    <div>
+                                        <label for="{{ $homeScoreField }}" class="mb-1 block font-semibold text-zinc-800">Doelpunten thuis</label>
+                                        <input id="{{ $homeScoreField }}" name="{{ $homeScoreField }}" type="number" min="0" max="255" step="1" value="{{ old($homeScoreField, $match->home_score) }}"
+                                               class="h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">
+                                        @error($homeScoreField)
+                                            <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                    <div>
+                                        <label for="{{ $awayScoreField }}" class="mb-1 block font-semibold text-zinc-800">Doelpunten uit</label>
+                                        <input id="{{ $awayScoreField }}" name="{{ $awayScoreField }}" type="number" min="0" max="255" step="1" value="{{ old($awayScoreField, $match->away_score) }}"
+                                               class="h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">
+                                        @error($awayScoreField)
+                                            <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                    <div class="sm:pb-px">
+                                        <button type="submit" class="inline-flex h-10 items-center justify-center rounded-lg bg-zijpalm-700 px-4 font-semibold text-white shadow-sm transition hover:bg-zijpalm-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zijpalm-700">
+                                            Uitslag opslaan
+                                        </button>
+                                    </div>
+                                    <p class="text-xs text-zinc-600 sm:col-span-3">Laat beide velden leeg om de uitslag te wissen.</p>
+                                </form>
                             </li>
                         @endforeach
                     </ul>

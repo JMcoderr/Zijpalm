@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Tournament;
+use App\Models\TournamentMatch;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -70,5 +71,38 @@ class TournamentMatchController extends Controller
         return redirect()
             ->route('admin.tournaments.edit', $tournament)
             ->with('success', 'Wedstrijd toegevoegd.');
+    }
+
+    public function update(Request $request, Tournament $tournament, TournamentMatch $match): RedirectResponse
+    {
+        $homeScoreField = 'home_score_'.$match->id;
+        $awayScoreField = 'away_score_'.$match->id;
+        $validated = $request->validate([
+            $homeScoreField => ['nullable', 'integer', 'min:0', 'max:255', 'required_with:'.$awayScoreField],
+            $awayScoreField => ['nullable', 'integer', 'min:0', 'max:255', 'required_with:'.$homeScoreField],
+        ], [
+            $homeScoreField.'.integer' => 'De thuisuitslag moet een heel getal zijn.',
+            $homeScoreField.'.min' => 'Een uitslag kan niet lager zijn dan 0.',
+            $homeScoreField.'.max' => 'Een uitslag mag niet hoger zijn dan 255.',
+            $homeScoreField.'.required_with' => 'Vul beide uitslagen in of laat ze allebei leeg.',
+            $awayScoreField.'.integer' => 'De uituitslag moet een heel getal zijn.',
+            $awayScoreField.'.min' => 'Een uitslag kan niet lager zijn dan 0.',
+            $awayScoreField.'.max' => 'Een uitslag mag niet hoger zijn dan 255.',
+            $awayScoreField.'.required_with' => 'Vul beide uitslagen in of laat ze allebei leeg.',
+        ]);
+
+        $homeScore = $validated[$homeScoreField] ?? null;
+        $awayScore = $validated[$awayScoreField] ?? null;
+
+        // A result is final only after both scores have been entered.
+        $match->update([
+            'home_score' => $homeScore,
+            'away_score' => $awayScore,
+            'result_finalized' => $homeScore !== null && $awayScore !== null,
+        ]);
+
+        return redirect()
+            ->route('admin.tournaments.edit', $tournament)
+            ->with('success', 'Uitslag opgeslagen.');
     }
 }

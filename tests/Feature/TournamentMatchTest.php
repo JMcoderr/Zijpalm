@@ -145,3 +145,153 @@ it('allows guests to view fixtures but only admins to add them', function () {
 
     $this->assertDatabaseCount('matches', 0);
 });
+
+// Administrators can publish or clear a complete score, which is then shown on the public schedule.
+it('allows admins to update a match result', function () {
+    $tournament = Tournament::create([
+        'name' => 'Result Cup',
+        'team_count' => 4,
+    ]);
+    $homeTeam = $tournament->teams()->create(['name' => 'Result Home']);
+    $awayTeam = $tournament->teams()->create(['name' => 'Result Away']);
+    $match = TournamentMatch::create([
+        'tournament_id' => $tournament->id,
+        'home_team_id' => $homeTeam->id,
+        'away_team_id' => $awayTeam->id,
+        'stage' => 'group',
+        'round_number' => 1,
+        'match_number' => 1,
+        'kickoff' => '2026-06-11 18:00:00',
+    ]);
+    $homeScoreField = 'home_score_'.$match->id;
+    $awayScoreField = 'away_score_'.$match->id;
+
+    $admin = User::factory()->admin()->create();
+
+    $this->actingAs($admin)
+        ->get(route('admin.tournaments.edit', $tournament))
+        ->assertOk()
+        ->assertSee($homeScoreField, false)
+        ->assertSee($awayScoreField, false);
+
+    $this->actingAs($admin)
+        ->put(route('admin.tournaments.matches.result', ['tournament' => $tournament, 'match' => $match]), [
+            $homeScoreField => 3,
+            $awayScoreField => 2,
+        ])
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHas('success', 'Uitslag opgeslagen.');
+
+    $this->assertDatabaseHas('matches', [
+        'id' => $match->id,
+        'home_score' => 3,
+        'away_score' => 2,
+        'result_finalized' => true,
+    ]);
+
+    $this->get(route('football-pool.matches', $tournament))
+        ->assertOk()
+        ->assertSee('3 - 2');
+
+    $this->put(route('admin.tournaments.matches.result', ['tournament' => $tournament, 'match' => $match]), [
+        $homeScoreField => '',
+        $awayScoreField => '',
+    ])->assertRedirect(route('admin.tournaments.edit', $tournament));
+
+    $this->assertDatabaseHas('matches', [
+        'id' => $match->id,
+        'home_score' => null,
+        'away_score' => null,
+        'result_finalized' => false,
+    ]);
+});
+
+// Both scores must be valid integers and are submitted together so partial results cannot be saved.
+it('rejects invalid or incomplete match results', function () {
+    $tournament = Tournament::create([
+        'name' => 'Invalid Result Cup',
+        'team_count' => 4,
+    ]);
+    $homeTeam = $tournament->teams()->create(['name' => 'Invalid Home']);
+    $awayTeam = $tournament->teams()->create(['name' => 'Invalid Away']);
+    $match = TournamentMatch::create([
+        'tournament_id' => $tournament->id,
+        'home_team_id' => $homeTeam->id,
+        'away_team_id' => $awayTeam->id,
+        'stage' => 'group',
+        'round_number' => 1,
+        'match_number' => 1,
+        'kickoff' => '2026-06-11 18:00:00',
+    ]);
+    $homeScoreField = 'home_score_'.$match->id;
+    $awayScoreField = 'away_score_'.$match->id;
+
+    $this->actingAs(User::factory()->admin()->create())
+        ->from(route('admin.tournaments.edit', $tournament))
+        ->put(route('admin.tournaments.matches.result', ['tournament' => $tournament, 'match' => $match]), [
+            $homeScoreField => -1,
+            $awayScoreField => 2,
+        ])
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHasErrors($homeScoreField);
+
+    $this->from(route('admin.tournaments.edit', $tournament))
+        ->put(route('admin.tournaments.matches.result', ['tournament' => $tournament, 'match' => $match]), [
+            $homeScoreField => 0,
+            $awayScoreField => '',
+        ])
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHasErrors($awayScoreField);
+
+    $this->assertDatabaseHas('matches', [
+        'id' => $match->id,
+        'home_score' => null,
+        'away_score' => null,
+        'result_finalized' => false,
+    ]);
+});
+
+// Scoped binding and administrator middleware keep results inside their tournament and role.
+it('restricts result updates to admins and the match owning tournament', function () {
+    $tournament = Tournament::create([
+        'name' => 'Result Access Cup',
+        'team_count' => 4,
+    ]);
+    $otherTournament = Tournament::create([
+        'name' => 'Other Result Cup',
+        'team_count' => 4,
+    ]);
+    $homeTeam = $tournament->teams()->create(['name' => 'Access Home']);
+    $awayTeam = $tournament->teams()->create(['name' => 'Access Away']);
+    $match = TournamentMatch::create([
+        'tournament_id' => $tournament->id,
+        'home_team_id' => $homeTeam->id,
+        'away_team_id' => $awayTeam->id,
+        'stage' => 'group',
+        'round_number' => 1,
+        'match_number' => 1,
+        'kickoff' => '2026-06-11 18:00:00',
+    ]);
+    $score = [
+        'home_score_'.$match->id => 1,
+        'away_score_'.$match->id => 0,
+    ];
+
+    $this->put(route('admin.tournaments.matches.result', ['tournament' => $tournament, 'match' => $match]), $score)
+        ->assertRedirect(route('home'));
+
+    $this->actingAs(User::factory()->create())
+        ->put(route('admin.tournaments.matches.result', ['tournament' => $tournament, 'match' => $match]), $score)
+        ->assertRedirect(route('home'));
+
+    $this->actingAs(User::factory()->admin()->create())
+        ->put(route('admin.tournaments.matches.result', ['tournament' => $otherTournament, 'match' => $match]), $score)
+        ->assertNotFound();
+
+    $this->assertDatabaseHas('matches', [
+        'id' => $match->id,
+        'home_score' => null,
+        'away_score' => null,
+        'result_finalized' => false,
+    ]);
+});

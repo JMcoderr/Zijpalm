@@ -246,6 +246,9 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->controller(AdminC
         Route::post('toernooien', [TournamentController::class, 'store'])->name('tournaments.store');
         Route::post('toernooien/{tournament}/wedstrijden', [TournamentMatchController::class, 'store'])
             ->name('tournaments.matches.store');
+        Route::put('toernooien/{tournament}/wedstrijden/{match}/uitslag', [TournamentMatchController::class, 'update'])
+            ->scopeBindings()
+            ->name('tournaments.matches.result');
         Route::post('toernooien/{tournament}/teams', [TournamentTeamController::class, 'store'])->name('tournaments.teams.store');
         Route::put('toernooien/{tournament}/teams/{team}', [TournamentTeamController::class, 'update'])
             ->scopeBindings()
