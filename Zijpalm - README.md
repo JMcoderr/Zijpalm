@@ -115,3 +115,16 @@ Voor deze functie zijn geen migraties nodig. Bouw de frontend met `npm run build
 Om de Mollie API te kunnen gebruiken moet de API key worden geplaatst in het `.env` bestand: `MOLLIE_KEY=`
 
 Daarnaast moet er tijdens de lokale ontwikkeling iets zoals ngrok gebruikt worden om de betalingen lokaal te doorlopen.
+
+## Testen
+
+Voer lokaal de tests uit per onderdeel:
+
+```powershell
+php artisan test --testsuite=Unit
+php artisan test --testsuite=Feature
+php artisan test --testsuite=Integration
+npm run build
+```
+
+GitHub Actions voert deze tests en de frontendbuild automatisch uit bij wijzigingen aan `dev` en `main`, en bij pull requests naar die branches. Werk aan één onderdeel op een `feature/<naam>`-branch en voeg dit na controle samen met `dev`. Zet wijzigingen pas op `main` als ze op `dev` zijn getest.
