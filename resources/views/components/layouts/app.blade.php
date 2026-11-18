@@ -23,9 +23,10 @@
 {{-- <x-layouts.app> is also featured in <x-page-wrapper> --}}
 <x-layouts.app.header :$title>
     {{-- Use the bundled image until an uploaded background is available in public storage. --}}
+    {{-- Keep the image aligned with the live Zijpalm site as it scales. --}}
     <flux:main
         style="background-image: url('{{ $backgroundImage }}')"
-        class="relative min-h-[calc(100vh_-_4rem)] bg-cover !bg-center bg-no-repeat"
+        class="relative min-h-[calc(100vh_-_4rem)] bg-cover bg-top bg-no-repeat"
     >
         @if($background && auth()->user()?->is_admin)
             <div class="bg-linear-to-t from-zinc-300 to-zinc-100 inset-shadow-sm inset-shadow-50 hidden absolute lg:block top-0 right-0 size-10.5 rounded-bl-2xl">

@@ -13,7 +13,7 @@ it('loads the bundled background when no uploaded background is available', func
     expect($html)
         ->toContain("url('".asset('images/zijpalm_background.jpg')."')")
         ->and($html)
-        ->toContain('min-h-[calc(100vh_-_4rem)] bg-cover !bg-center bg-no-repeat');
+        ->toContain('min-h-[calc(100vh_-_4rem)] bg-cover bg-top bg-no-repeat');
 });
 
 it('copies and seeds the bundled background image', function () {
