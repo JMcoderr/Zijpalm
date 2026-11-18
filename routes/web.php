@@ -249,6 +249,10 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->controller(AdminC
     }
 );
 
+// Football pool routes
+// Admins will manage tournaments here (create, list and later edit them).
+// The routes are added step by step while the football pool is being built.
+
 require __DIR__.'/auth.php';
 
 // Route::get('/', function(){return view('home');})->name('home');
