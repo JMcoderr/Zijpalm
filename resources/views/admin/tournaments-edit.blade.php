@@ -80,7 +80,7 @@
                                 <span class="font-semibold">{{ $match->homeTeam?->name ?? 'Nog te bepalen' }}</span>
                                 <span class="px-1">-</span>
                                 <span class="font-semibold">{{ $match->awayTeam?->name ?? 'Nog te bepalen' }}</span>
-                                <span class="text-zinc-600">· {{ $match->kickoff->format('d-m-Y H:i') }}</span>
+                                <span class="text-zinc-600">· {{ \App\Support\TournamentTime::formatLocal($match->kickoff, 'd-m-Y H:i') }}</span>
                                 @php($homeScoreField = 'home_score_'.$match->id)
                                 @php($awayScoreField = 'away_score_'.$match->id)
                                 <form method="POST" action="{{ route('admin.tournaments.matches.result', ['tournament' => $tournament, 'match' => $match]) }}" class="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
@@ -143,7 +143,7 @@
                         </div>
                         <div>
                             <label for="kickoff" class="mb-1 block text-sm font-semibold text-zinc-800">Datum en tijd</label>
-                            <input id="kickoff" name="kickoff" type="datetime-local" value="{{ old('kickoff', $tournament->starts_at?->format('Y-m-d\TH:i')) }}" required
+                            <input id="kickoff" name="kickoff" type="datetime-local" value="{{ old('kickoff', \App\Support\TournamentTime::toLocalInput($tournament->starts_at)) }}" required
                                    class="h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">
                             @error('kickoff')
                                 <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p>

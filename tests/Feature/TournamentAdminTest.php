@@ -2,6 +2,7 @@
 
 use App\Models\Tournament;
 use App\Models\User;
+use App\Support\TournamentTime;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -28,12 +29,32 @@ it('allows admins to create and view tournaments', function () {
 
     expect($tournament->team_count)->toBe(16)
         ->and($tournament->starts_at)->toBeInstanceOf(DateTimeInterface::class);
+    $this->assertDatabaseHas('tournaments', [
+        'id' => $tournament->id,
+        'starts_at' => '2026-06-11 18:00:00',
+    ]);
 
     $this->get(route('admin.tournaments.index'))
         ->assertOk()
         ->assertSee('World Cup 2026')
         ->assertSee('16')
         ->assertSee('11-06-2026 20:00');
+});
+
+// The start date is optional, so a tournament can be created without that field.
+it('allows admins to create a tournament without a start date', function () {
+    $this->actingAs(User::factory()->admin()->create())
+        ->post(route('admin.tournaments.store'), [
+            'name' => 'Unscheduled Cup',
+            'team_count' => 8,
+        ])
+        ->assertRedirect(route('admin.tournaments.index'))
+        ->assertSessionHas('success', 'Toernooi aangemaakt.');
+
+    $this->assertDatabaseHas('tournaments', [
+        'name' => 'Unscheduled Cup',
+        'starts_at' => null,
+    ]);
 });
 
 it('rejects a tournament with fewer than two teams', function () {
@@ -54,7 +75,7 @@ it('allows admins to edit a tournament', function () {
         'name' => 'Old tournament name',
         'team_count' => 16,
         'description' => 'Old description',
-        'starts_at' => '2026-06-11 20:00:00',
+        'starts_at' => TournamentTime::fromLocalInput('2026-06-11T20:00'),
     ]);
 
     $this->actingAs(User::factory()->admin()->create())
@@ -80,7 +101,7 @@ it('allows admins to edit a tournament', function () {
         'name' => 'Updated tournament name',
         'team_count' => 24,
         'description' => 'Updated description',
-        'starts_at' => '2026-12-01 19:00:00',
+        'starts_at' => '2026-12-01 18:00:00',
     ]);
 });
 

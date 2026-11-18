@@ -39,7 +39,7 @@
                                     <tr>
                                         <th scope="row" class="px-4 py-3 font-semibold text-zinc-900">{{ $tournament->name }}</th>
                                         <td class="px-4 py-3 text-zinc-700">{{ $tournament->team_count }}</td>
-                                        <td class="px-4 py-3 text-zinc-700">{{ $tournament->starts_at?->format('d-m-Y H:i') ?? 'Nog niet ingesteld' }}</td>
+                                        <td class="px-4 py-3 text-zinc-700">{{ $tournament->starts_at ? \App\Support\TournamentTime::formatLocal($tournament->starts_at, 'd-m-Y H:i') : 'Nog niet ingesteld' }}</td>
                                         <td class="px-4 py-3 text-zinc-700">{{ $tournament->description ?: '-' }}</td>
                                         <td class="px-4 py-3">
                                             <a href="{{ route('admin.tournaments.edit', $tournament) }}" class="font-semibold text-zijpalm-700 hover:underline">

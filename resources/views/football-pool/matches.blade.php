@@ -32,7 +32,10 @@
         @forelse ($matches as $match)
             <article class="mb-3 rounded-lg border border-zinc-300 bg-white p-4 text-zinc-900 shadow-sm last:mb-0">
                 <p class="mb-3 text-sm text-zinc-600">
-                    Wedstrijd {{ $match->match_number }} · {{ $match->kickoff->format('d-m-Y H:i') }}
+                    Wedstrijd {{ $match->match_number }} · {{ \App\Support\TournamentTime::formatLocal($match->kickoff, 'd-m-Y H:i') }}
+                </p>
+                <p class="mb-3 text-sm text-zinc-600">
+                    Voorspellen kan tot {{ \App\Support\TournamentTime::formatLocal($match->predictionDeadline(), 'd-m-Y H:i') }}
                 </p>
                 <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center">
                     <p class="font-semibold">{{ $match->homeTeam?->name ?? 'Nog te bepalen' }}</p>
@@ -50,7 +53,7 @@
 
                     @if ($match->home_team_id === null || $match->away_team_id === null)
                         <p role="status" class="mt-3 text-sm text-zinc-700">Voorspellen kan zodra beide teams bekend zijn.</p>
-                    @elseif (! $match->kickoff->isFuture() || $match->result_finalized)
+                    @elseif (! $match->predictionDeadline()->isFuture() || $match->result_finalized)
                         @if ($prediction)
                             <p class="mt-3 text-sm font-semibold text-zinc-800">
                                 Jouw voorspelling: {{ $prediction->home_score }} - {{ $prediction->away_score }}

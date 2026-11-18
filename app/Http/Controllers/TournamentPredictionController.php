@@ -29,8 +29,7 @@ class TournamentPredictionController extends Controller
                 ->with('error', 'Je kunt pas voorspellen als beide teams bekend zijn.');
         }
 
-        // The kickoff is the cutoff; finalized matches are closed even if their time is still in the future.
-        if (! $match->kickoff->isFuture() || $match->result_finalized) {
+        if (! $match->predictionDeadline()->isFuture() || $match->result_finalized) {
             return redirect()
                 ->route('football-pool.matches', $tournament)
                 ->with('error', 'De deadline voor deze voorspelling is verstreken.');

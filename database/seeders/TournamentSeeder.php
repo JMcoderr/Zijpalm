@@ -3,24 +3,31 @@
 namespace Database\Seeders;
 
 use App\Models\Tournament;
+use App\Support\TournamentTime;
 use Illuminate\Database\Seeder;
 
 class TournamentSeeder extends Seeder
 {
     public function run(): void
     {
+        $localStartDate = now()
+            ->setTimezone(TournamentTime::TIMEZONE)
+            ->subDays(2)
+            ->format('Y-m-d').'T09:00';
+        $tournamentStart = TournamentTime::fromLocalInput($localStartDate);
+
         // Keep repeated local seed runs from creating duplicate demo tournaments.
         $tournament = Tournament::firstOrCreate(
             ['name' => 'Voorbeeldtoernooi'],
             [
                 'team_count' => 16,
                 'description' => 'Voorbeeldtoernooi om het beheren lokaal te testen.',
-                'starts_at' => now()->subDays(2)->setTime(9, 0),
+                'starts_at' => $tournamentStart,
             ],
         );
 
         if ($tournament->starts_at === null) {
-            $tournament->update(['starts_at' => now()->subDays(2)->setTime(9, 0)]);
+            $tournament->update(['starts_at' => $tournamentStart]);
         }
 
         $teamNames = [
@@ -70,9 +77,11 @@ class TournamentSeeder extends Seeder
                     'home_team_id' => $teams[$fixture['home']]->id,
                     'away_team_id' => $teams[$fixture['away']]->id,
                     'kickoff' => $tournament->starts_at->copy()
+                        ->setTimezone(TournamentTime::TIMEZONE)
                         ->startOfDay()
                         ->addDays($fixture['day'])
-                        ->setTime($fixture['hour'], 0),
+                        ->setTime($fixture['hour'], 0)
+                        ->utc(),
                     'home_score' => $fixture['home_score'],
                     'away_score' => $fixture['away_score'],
                     'result_finalized' => $fixture['home_score'] !== null,

@@ -38,7 +38,7 @@ it('allows admins to add matches using teams from the same tournament', function
         'stage' => 'group',
         'round_number' => 1,
         'match_number' => 1,
-        'kickoff' => '2026-06-11 18:00:00',
+        'kickoff' => '2026-06-11 16:00:00',
     ]);
 
     $this->get(route('football-pool.matches', $tournament))
@@ -46,6 +46,43 @@ it('allows admins to add matches using teams from the same tournament', function
         ->assertSee('Home Team')
         ->assertSee('Away Team')
         ->assertSee('11-06-2026 18:00');
+});
+
+// A repeated fixture cannot be scheduled again at the same time, even if the teams are swapped.
+it('rejects duplicate fixtures for the same kickoff', function () {
+    $tournament = Tournament::create([
+        'name' => 'Duplicate Fixture Cup',
+        'team_count' => 4,
+    ]);
+    $homeTeam = $tournament->teams()->create(['name' => 'Duplicate Home']);
+    $awayTeam = $tournament->teams()->create(['name' => 'Duplicate Away']);
+    $admin = User::factory()->admin()->create();
+    $route = route('admin.tournaments.matches.store', $tournament);
+    $fixture = [
+        'home_team_id' => $homeTeam->id,
+        'away_team_id' => $awayTeam->id,
+        'kickoff' => '2026-06-11T18:00',
+    ];
+
+    $this->actingAs($admin)
+        ->post($route, $fixture)
+        ->assertRedirect(route('admin.tournaments.edit', $tournament));
+
+    $this->from(route('admin.tournaments.edit', $tournament))
+        ->post($route, $fixture)
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHasErrors('kickoff');
+
+    $this->from(route('admin.tournaments.edit', $tournament))
+        ->post($route, [
+            ...$fixture,
+            'home_team_id' => $awayTeam->id,
+            'away_team_id' => $homeTeam->id,
+        ])
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHasErrors('kickoff');
+
+    $this->assertDatabaseCount('matches', 1);
 });
 
 // Team membership and distinct-team validation prevent invalid fixtures from being stored.
@@ -181,6 +218,18 @@ it('allows admins to update a match result', function () {
         ])
         ->assertRedirect(route('admin.tournaments.edit', $tournament))
         ->assertSessionHas('success', 'Uitslag opgeslagen.');
+
+    $this->assertDatabaseHas('matches', [
+        'id' => $match->id,
+        'home_score' => 3,
+        'away_score' => 2,
+        'result_finalized' => true,
+    ]);
+
+    $this->from(route('admin.tournaments.edit', $tournament))
+        ->put(route('admin.tournaments.matches.result', ['tournament' => $tournament, 'match' => $match]), [])
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHasErrors([$homeScoreField, $awayScoreField]);
 
     $this->assertDatabaseHas('matches', [
         'id' => $match->id,

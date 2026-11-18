@@ -3,6 +3,7 @@
 use App\Models\Tournament;
 use App\Models\TournamentMatch;
 use App\Models\User;
+use App\Support\TournamentTime;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -148,6 +149,47 @@ it('closes prediction changes at kickoff', function () {
             'predicted_home_score_'.$match->id => 2,
             'predicted_away_score_'.$match->id => 2,
         ])
+        ->assertRedirect(route('football-pool.matches', $tournament))
+        ->assertSessionHas('error', 'De deadline voor deze voorspelling is verstreken.');
+
+    $this->assertDatabaseCount('tournament_predictions', 0);
+});
+
+// Group predictions close at the earlier of the tournament start or the match kickoff.
+it('closes group predictions when the tournament starts before kickoff', function () {
+    $deadline = now()->addHour();
+    $tournament = Tournament::create([
+        'name' => 'Tournament Start Deadline Cup',
+        'team_count' => 4,
+        'starts_at' => $deadline,
+    ]);
+    $homeTeam = $tournament->teams()->create(['name' => 'Start Deadline Home']);
+    $awayTeam = $tournament->teams()->create(['name' => 'Start Deadline Away']);
+    $match = $tournament->matches()->create([
+        'home_team_id' => $homeTeam->id,
+        'away_team_id' => $awayTeam->id,
+        'stage' => 'group',
+        'round_number' => 1,
+        'match_number' => 1,
+        'kickoff' => $deadline->copy()->addHour(),
+    ]);
+    $member = User::factory()->create();
+    $tournament->participants()->create(['user_id' => $member->id]);
+    $this->travelTo($deadline);
+
+    $this->actingAs($member)
+        ->get(route('football-pool.matches', $tournament))
+        ->assertOk()
+        ->assertSee('Voorspellen kan tot '.TournamentTime::formatLocal($deadline, 'd-m-Y H:i'))
+        ->assertSee('De deadline voor deze wedstrijd is verstreken.');
+
+    $this->put(route('football-pool.matches.predictions.store', [
+        'tournament' => $tournament,
+        'match' => $match,
+    ]), [
+        'predicted_home_score_'.$match->id => 2,
+        'predicted_away_score_'.$match->id => 1,
+    ])
         ->assertRedirect(route('football-pool.matches', $tournament))
         ->assertSessionHas('error', 'De deadline voor deze voorspelling is verstreken.');
 

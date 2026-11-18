@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -51,5 +52,17 @@ class TournamentMatch extends Model
     public function predictions(): HasMany
     {
         return $this->hasMany(TournamentPrediction::class, 'match_id');
+    }
+
+    public function predictionDeadline(): Carbon
+    {
+        $deadline = $this->kickoff;
+        $tournamentStart = $this->stage === 'group'
+            ? $this->tournament?->starts_at
+            : null;
+
+        return $tournamentStart && $tournamentStart->lessThan($deadline)
+            ? $tournamentStart
+            : $deadline;
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Tournament;
+use App\Support\TournamentTime;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -55,11 +56,11 @@ class TournamentController extends Controller
 
     private function validatedTournamentData(Request $request): array
     {
-        return $request->validate([
+        $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'team_count' => ['required', 'integer', 'min:2', 'max:65535'],
             'description' => ['nullable', 'string'],
-            'starts_at' => ['nullable', 'date'],
+            'starts_at' => ['nullable', 'date_format:Y-m-d\TH:i'],
         ], [
             'name.required' => 'Vul een naam in.',
             'name.max' => 'De naam mag maximaal 255 tekens bevatten.',
@@ -68,7 +69,13 @@ class TournamentController extends Controller
             'team_count.min' => 'Een toernooi moet minimaal twee teams hebben.',
             'team_count.max' => 'Het aantal teams is te hoog.',
             'description.string' => 'De omschrijving moet tekst zijn.',
-            'starts_at.date' => 'Vul een geldige startdatum in.',
+            'starts_at.date_format' => 'Vul een geldige startdatum en tijd in.',
         ]);
+
+        if (($validated['starts_at'] ?? null) !== null) {
+            $validated['starts_at'] = TournamentTime::fromLocalInput($validated['starts_at']);
+        }
+
+        return $validated;
     }
 }

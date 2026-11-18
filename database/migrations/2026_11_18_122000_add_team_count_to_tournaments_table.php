@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('tournaments', function (Blueprint $table) {
-            $table->unsignedSmallInteger('team_count');
+            $table->unsignedSmallInteger('team_count')->default(16);
         });
     }
 

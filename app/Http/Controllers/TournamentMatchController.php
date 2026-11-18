@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Tournament;
 use App\Models\TournamentMatch;
+use App\Support\TournamentTime;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +16,7 @@ class TournamentMatchController extends Controller
     public function index(Request $request, Tournament $tournament): View
     {
         $matches = $tournament->matches()
-            ->with(['homeTeam', 'awayTeam'])
+            ->with(['homeTeam', 'awayTeam', 'tournament'])
             ->orderBy('kickoff')
             ->orderBy('match_number')
             ->get();
@@ -45,7 +46,7 @@ class TournamentMatchController extends Controller
                 'different:home_team_id',
                 Rule::exists('teams', 'id')->where('tournament_id', $tournament->id),
             ],
-            'kickoff' => ['required', 'date'],
+            'kickoff' => ['required', 'date_format:Y-m-d\TH:i'],
         ], [
             'home_team_id.required' => 'Kies een thuisteam.',
             'home_team_id.exists' => 'Het thuisteam hoort niet bij dit toernooi.',
@@ -53,14 +54,35 @@ class TournamentMatchController extends Controller
             'away_team_id.different' => 'Kies twee verschillende teams.',
             'away_team_id.exists' => 'Het uitteam hoort niet bij dit toernooi.',
             'kickoff.required' => 'Vul de datum en tijd van de wedstrijd in.',
-            'kickoff.date' => 'Vul een geldige datum en tijd in.',
+            'kickoff.date_format' => 'Vul een geldige datum en tijd in.',
         ]);
 
-        DB::transaction(function () use ($tournament, $validated) {
+        $kickoff = TournamentTime::fromLocalInput($validated['kickoff']);
+
+        $created = DB::transaction(function () use ($tournament, $validated, $kickoff) {
             // Locking the tournament keeps concurrent submissions from reusing a match number.
             $lockedTournament = Tournament::query()
                 ->lockForUpdate()
                 ->findOrFail($tournament->id);
+
+            $duplicateExists = $lockedTournament->matches()
+                ->where('stage', 'group')
+                ->where('kickoff', $kickoff->format('Y-m-d H:i:s'))
+                ->where(function ($query) use ($validated) {
+                    $query->where(function ($query) use ($validated) {
+                        $query->where('home_team_id', $validated['home_team_id'])
+                            ->where('away_team_id', $validated['away_team_id']);
+                    })->orWhere(function ($query) use ($validated) {
+                        $query->where('home_team_id', $validated['away_team_id'])
+                            ->where('away_team_id', $validated['home_team_id']);
+                    });
+                })
+                ->exists();
+
+            if ($duplicateExists) {
+                return false;
+            }
+
             $matchNumber = (int) $lockedTournament->matches()
                 ->where('stage', 'group')
                 ->where('round_number', 1)
@@ -72,9 +94,17 @@ class TournamentMatchController extends Controller
                 'stage' => 'group',
                 'round_number' => 1,
                 'match_number' => $matchNumber,
-                'kickoff' => $validated['kickoff'],
+                'kickoff' => $kickoff,
             ]);
+
+            return true;
         });
+
+        if (! $created) {
+            return back()
+                ->withErrors(['kickoff' => 'Deze wedstrijd staat al op dit tijdstip ingepland.'])
+                ->withInput();
+        }
 
         return redirect()
             ->route('admin.tournaments.edit', $tournament)
@@ -86,8 +116,8 @@ class TournamentMatchController extends Controller
         $homeScoreField = 'home_score_'.$match->id;
         $awayScoreField = 'away_score_'.$match->id;
         $validated = $request->validate([
-            $homeScoreField => ['nullable', 'integer', 'min:0', 'max:255', 'required_with:'.$awayScoreField],
-            $awayScoreField => ['nullable', 'integer', 'min:0', 'max:255', 'required_with:'.$homeScoreField],
+            $homeScoreField => ['present', 'nullable', 'integer', 'min:0', 'max:255', 'required_with:'.$awayScoreField],
+            $awayScoreField => ['present', 'nullable', 'integer', 'min:0', 'max:255', 'required_with:'.$homeScoreField],
         ], [
             $homeScoreField.'.integer' => 'De thuisuitslag moet een heel getal zijn.',
             $homeScoreField.'.min' => 'Een uitslag kan niet lager zijn dan 0.',

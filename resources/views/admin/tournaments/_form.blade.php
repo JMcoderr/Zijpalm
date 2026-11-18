@@ -27,7 +27,7 @@
     <div class="min-w-0">
         <label for="starts_at" class="mb-1 block text-sm font-semibold text-zinc-800">Startdatum en tijd (optioneel)</label>
         <input id="starts_at" name="starts_at" type="datetime-local"
-               value="{{ old('starts_at', $tournament?->starts_at?->format('Y-m-d\TH:i')) }}"
+               value="{{ old('starts_at', \App\Support\TournamentTime::toLocalInput($tournament?->starts_at)) }}"
                class="h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">
         @error('starts_at')
             <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p>

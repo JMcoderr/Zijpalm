@@ -8,7 +8,7 @@
                 <h2 class="text-lg font-bold">{{ $tournament->name }}</h2>
 
                 @if ($tournament->starts_at)
-                    <p class="mt-1 text-sm text-zinc-700">Start: {{ $tournament->starts_at->format('d-m-Y H:i') }}</p>
+                    <p class="mt-1 text-sm text-zinc-700">Start: {{ \App\Support\TournamentTime::formatLocal($tournament->starts_at, 'd-m-Y H:i') }}</p>
                 @else
                     <p class="mt-1 text-sm text-zinc-700">Startdatum volgt.</p>
                 @endif
