@@ -2,6 +2,7 @@
 
 use App\Models\Tournament;
 use Database\Seeders\TournamentSeeder;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -44,5 +45,34 @@ it('seeds one reusable tournament for local development', function () {
     $this->assertDatabaseHas('tournaments', [
         'name' => 'Voorbeeldtoernooi',
         'team_count' => 16,
+    ]);
+});
+
+it('keeps team names unique within a tournament and removes teams with their tournament', function () {
+    $tournament = Tournament::create([
+        'name' => 'Tournament one',
+        'team_count' => 16,
+    ]);
+
+    $otherTournament = Tournament::create([
+        'name' => 'Tournament two',
+        'team_count' => 16,
+    ]);
+
+    $tournament->teams()->create(['name' => 'Almere City']);
+
+    expect(fn () => $tournament->teams()->create(['name' => 'Almere City']))
+        ->toThrow(QueryException::class);
+
+    $otherTournament->teams()->create(['name' => 'Almere City']);
+
+    $this->assertDatabaseCount('teams', 2);
+
+    $tournament->delete();
+
+    $this->assertDatabaseCount('teams', 1);
+    $this->assertDatabaseHas('teams', [
+        'tournament_id' => $otherTournament->id,
+        'name' => 'Almere City',
     ]);
 });

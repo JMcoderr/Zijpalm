@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Tournament extends Model
 {
@@ -17,4 +18,9 @@ class Tournament extends Model
         'team_count' => 'integer',
         'starts_at' => 'datetime',
     ];
+
+    public function teams(): HasMany
+    {
+        return $this->hasMany(Team::class);
+    }
 }
