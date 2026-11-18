@@ -34,6 +34,10 @@
                     {{__('Activiteiten')}}
                 </flux:navbar.item>
 
+                <flux:navbar.item :href="route('football-pool.index')" :current="request()->routeIs('football-pool.*')" wire:navigate>
+                    {{__('Voetbalpoule')}}
+                </flux:navbar.item>
+
                 <flux:navbar.item :href="route('information.about')" :current="request()->routeIs('information.about')" wire:navigate>
                     {{__('Over ons')}}
                 </flux:navbar.item>
@@ -138,6 +142,10 @@
                 {{-- TO DO: Set :current to any Activity Page --}}
                 <flux:navlist.item :href="route('activity.index')" :current="request()->routeIs('activity.*')" icon="calendar-days" iconColor="text-zijpalm-600" iconVariant="solid" iconSize="size-6">
                     <p> Activiteiten </p>
+                </flux:navlist.item>
+
+                <flux:navlist.item :href="route('football-pool.index')" :current="request()->routeIs('football-pool.*')" icon="trophy" iconColor="text-zijpalm-600" iconVariant="solid" iconSize="size-6">
+                    <p> Voetbalpoule </p>
                 </flux:navlist.item>
 
                 {{-- TO DO: Add :current, set to any Information page --}}

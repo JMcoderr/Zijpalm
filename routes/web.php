@@ -16,11 +16,15 @@ use App\Http\Controllers\InformationController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\TournamentParticipantController;
 use App\Http\Controllers\TournamentController;
 use App\Http\Controllers\TournamentTeamController;
 use App\Http\Controllers\UserController;
 // Home view
 Route::view('/', 'home')->name('home');
+Route::get('voetbalpoule', [TournamentParticipantController::class, 'index'])->name('football-pool.index');
+Route::middleware('auth')->post('voetbalpoule/{tournament}/aanmelden', [TournamentParticipantController::class, 'store'])
+    ->name('football-pool.join');
 
 // Middleware routes
 Route::middleware('auth')->group(
