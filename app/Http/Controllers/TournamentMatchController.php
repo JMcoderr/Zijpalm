@@ -12,15 +12,23 @@ use Illuminate\View\View;
 
 class TournamentMatchController extends Controller
 {
-    public function index(Tournament $tournament): View
+    public function index(Request $request, Tournament $tournament): View
     {
         $matches = $tournament->matches()
             ->with(['homeTeam', 'awayTeam'])
             ->orderBy('kickoff')
             ->orderBy('match_number')
             ->get();
+        $participant = $request->user()
+            ?->tournamentParticipations()
+            ->where('tournament_id', $tournament->id)
+            ->with('predictions')
+            ->first();
+        $predictions = $participant
+            ? $participant->predictions->keyBy('match_id')
+            : collect();
 
-        return view('football-pool.matches', compact('tournament', 'matches'));
+        return view('football-pool.matches', compact('tournament', 'matches', 'participant', 'predictions'));
     }
 
     public function store(Request $request, Tournament $tournament): RedirectResponse
