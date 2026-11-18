@@ -7,6 +7,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
+// An administrator can create a fixture when both selected teams belong to the same tournament.
 it('allows admins to add matches using teams from the same tournament', function () {
     $tournament = Tournament::create([
         'name' => 'Match Cup',
@@ -47,6 +48,7 @@ it('allows admins to add matches using teams from the same tournament', function
         ->assertSee('11-06-2026 18:00');
 });
 
+// Team membership and distinct-team validation prevent invalid fixtures from being stored.
 it('rejects a team from another tournament and a match against the same team', function () {
     $tournament = Tournament::create([
         'name' => 'Original Cup',
@@ -82,6 +84,7 @@ it('rejects a team from another tournament and a match against the same team', f
     $this->assertDatabaseCount('matches', 0);
 });
 
+// Existing fixtures must keep their participating teams so the schedule remains valid.
 it('keeps teams from being removed while they are assigned to a match', function () {
     $tournament = Tournament::create([
         'name' => 'Keep Match Teams Cup',
@@ -112,6 +115,7 @@ it('keeps teams from being removed while they are assigned to a match', function
     $this->assertDatabaseCount('matches', 1);
 });
 
+// Visitors may read the public schedule, but only administrators may add fixtures.
 it('allows guests to view fixtures but only admins to add them', function () {
     $tournament = Tournament::create([
         'name' => 'Public Fixture Cup',

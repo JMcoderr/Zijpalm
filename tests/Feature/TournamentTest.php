@@ -26,6 +26,7 @@ it('stores tournament details and casts the start date', function () {
     expect($tournament->fresh()->starts_at)->toBeInstanceOf(DateTimeInterface::class);
 });
 
+// Optional tournament details must remain optional for existing and manually created tournaments.
 it('allows a tournament without a description or start date', function () {
     $tournament = Tournament::create([
         'name' => 'Future tournament',
@@ -37,15 +38,33 @@ it('allows a tournament without a description or start date', function () {
         ->starts_at->toBeNull();
 });
 
-it('seeds one reusable tournament for local development', function () {
+// Re-running the local seeder should keep one demo tournament and a ready-to-test fixture schedule.
+it('seeds a reusable tournament with demo teams and matches for local development', function () {
     $this->seed(TournamentSeeder::class);
     $this->seed(TournamentSeeder::class);
 
     $this->assertDatabaseCount('tournaments', 1);
+    $this->assertDatabaseCount('teams', 16);
+    $this->assertDatabaseCount('matches', 8);
     $this->assertDatabaseHas('tournaments', [
         'name' => 'Voorbeeldtoernooi',
         'team_count' => 16,
     ]);
+    $this->assertDatabaseHas('matches', [
+        'stage' => 'group',
+        'round_number' => 1,
+        'match_number' => 1,
+        'home_score' => 2,
+        'away_score' => 1,
+        'result_finalized' => true,
+    ]);
+
+    $tournament = Tournament::where('name', 'Voorbeeldtoernooi')->firstOrFail();
+    $this->get(route('football-pool.matches', $tournament))
+        ->assertOk()
+        ->assertSee('Almere Noord')
+        ->assertSee('Almere Zuid')
+        ->assertSee('2 - 1');
 });
 
 it('keeps team names unique within a tournament and removes teams with their tournament', function () {

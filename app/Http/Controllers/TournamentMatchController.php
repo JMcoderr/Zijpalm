@@ -48,6 +48,7 @@ class TournamentMatchController extends Controller
         ]);
 
         DB::transaction(function () use ($tournament, $validated) {
+            // Locking the tournament keeps concurrent submissions from reusing a match number.
             $lockedTournament = Tournament::query()
                 ->lockForUpdate()
                 ->findOrFail($tournament->id);
