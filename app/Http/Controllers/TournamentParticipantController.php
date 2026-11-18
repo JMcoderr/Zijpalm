@@ -12,7 +12,7 @@ class TournamentParticipantController extends Controller
     public function index(Request $request): View
     {
         $tournaments = Tournament::query()
-            ->withCount(['teams', 'participants'])
+            ->withCount(['teams', 'participants', 'matches'])
             ->orderBy('starts_at')
             ->orderBy('name')
             ->get();

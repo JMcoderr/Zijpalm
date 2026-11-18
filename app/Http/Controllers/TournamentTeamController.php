@@ -71,6 +71,10 @@ class TournamentTeamController extends Controller
 
     public function destroy(Tournament $tournament, Team $team): RedirectResponse
     {
+        if ($team->homeMatches()->exists() || $team->awayMatches()->exists()) {
+            return back()->with('error', 'Dit team kan niet worden verwijderd zolang het aan een wedstrijd is gekoppeld.');
+        }
+
         $team->delete();
 
         return redirect()

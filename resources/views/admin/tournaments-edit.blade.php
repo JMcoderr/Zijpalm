@@ -64,6 +64,73 @@
                     <p role="status" class="text-sm font-semibold text-zinc-700">Het ingestelde aantal teams is bereikt.</p>
                 @endif
             </section>
+
+            <section aria-labelledby="tournament-matches-heading" class="border-t border-zinc-300/80 pt-6">
+                <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <h2 id="tournament-matches-heading" class="text-lg font-bold text-zinc-900">Wedstrijden</h2>
+                    <p class="text-sm font-semibold text-zinc-700">{{ $tournament->matches->count() }} wedstrijden</p>
+                </div>
+
+                @if ($tournament->matches->isEmpty())
+                    <p class="mb-4 text-sm text-zinc-700">Er zijn nog geen wedstrijden toegevoegd.</p>
+                @else
+                    <ul class="mb-4 space-y-2">
+                        @foreach ($tournament->matches as $match)
+                            <li class="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900">
+                                <span class="font-semibold">{{ $match->homeTeam?->name ?? 'Nog te bepalen' }}</span>
+                                <span class="px-1">-</span>
+                                <span class="font-semibold">{{ $match->awayTeam?->name ?? 'Nog te bepalen' }}</span>
+                                <span class="text-zinc-600">· {{ $match->kickoff->format('d-m-Y H:i') }}</span>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+
+                @if ($tournament->teams->count() >= 2)
+                    <form method="POST" action="{{ route('admin.tournaments.matches.store', $tournament) }}" class="grid gap-3 sm:grid-cols-2">
+                        @csrf
+                        <div>
+                            <label for="home_team_id" class="mb-1 block text-sm font-semibold text-zinc-800">Thuisteam</label>
+                            <select id="home_team_id" name="home_team_id" required class="h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">
+                                <option value="">Kies een thuisteam</option>
+                                @foreach ($tournament->teams as $team)
+                                    <option value="{{ $team->id }}" @selected(old('home_team_id') == $team->id)>{{ $team->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('home_team_id')
+                                <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div>
+                            <label for="away_team_id" class="mb-1 block text-sm font-semibold text-zinc-800">Uitteam</label>
+                            <select id="away_team_id" name="away_team_id" required class="h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">
+                                <option value="">Kies een uitteam</option>
+                                @foreach ($tournament->teams as $team)
+                                    <option value="{{ $team->id }}" @selected(old('away_team_id') == $team->id)>{{ $team->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('away_team_id')
+                                <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div>
+                            <label for="kickoff" class="mb-1 block text-sm font-semibold text-zinc-800">Datum en tijd</label>
+                            <input id="kickoff" name="kickoff" type="datetime-local" value="{{ old('kickoff', $tournament->starts_at?->format('Y-m-d\TH:i')) }}" required
+                                   class="h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">
+                            @error('kickoff')
+                                <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div class="flex items-end">
+                            <button type="submit" class="inline-flex h-11 items-center justify-center rounded-lg bg-zijpalm-700 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-zijpalm-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zijpalm-700">
+                                Wedstrijd toevoegen
+                            </button>
+                        </div>
+                    </form>
+                @else
+                    <p role="status" class="text-sm font-semibold text-zinc-700">Voeg eerst minimaal twee teams toe om een wedstrijd te maken.</p>
+                @endif
+            </section>
         </x-admin.layout>
     </x-zijpalm-div>
 </x-page-wrapper>

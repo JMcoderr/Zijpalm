@@ -18,11 +18,14 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\TournamentParticipantController;
 use App\Http\Controllers\TournamentController;
+use App\Http\Controllers\TournamentMatchController;
 use App\Http\Controllers\TournamentTeamController;
 use App\Http\Controllers\UserController;
 // Home view
 Route::view('/', 'home')->name('home');
 Route::get('voetbalpoule', [TournamentParticipantController::class, 'index'])->name('football-pool.index');
+Route::get('voetbalpoule/{tournament}/wedstrijden', [TournamentMatchController::class, 'index'])
+    ->name('football-pool.matches');
 Route::middleware('auth')->post('voetbalpoule/{tournament}/aanmelden', [TournamentParticipantController::class, 'store'])
     ->name('football-pool.join');
 
@@ -241,6 +244,8 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->controller(AdminC
         // Keep football-pool tournament management inside the administrator-only area.
         Route::get('toernooien', [TournamentController::class, 'index'])->name('tournaments.index');
         Route::post('toernooien', [TournamentController::class, 'store'])->name('tournaments.store');
+        Route::post('toernooien/{tournament}/wedstrijden', [TournamentMatchController::class, 'store'])
+            ->name('tournaments.matches.store');
         Route::post('toernooien/{tournament}/teams', [TournamentTeamController::class, 'store'])->name('tournaments.teams.store');
         Route::put('toernooien/{tournament}/teams/{team}', [TournamentTeamController::class, 'update'])
             ->scopeBindings()

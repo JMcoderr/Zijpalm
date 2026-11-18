@@ -30,7 +30,7 @@ class TournamentController extends Controller
 
     public function edit(Tournament $tournament): View
     {
-        $tournament->load('teams');
+        $tournament->load(['teams', 'matches.homeTeam', 'matches.awayTeam']);
 
         return view('admin.tournaments-edit', compact('tournament'));
     }
