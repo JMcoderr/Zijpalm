@@ -182,11 +182,88 @@ it('does not let admins lower the team limit below the number of added teams', f
     expect($tournament->fresh()->team_count)->toBe(4);
 });
 
+it('allows admins to rename teams without duplicating a name', function () {
+    $tournament = Tournament::create([
+        'name' => 'Team update tournament',
+        'team_count' => 4,
+    ]);
+    $team = $tournament->teams()->create(['name' => 'Almere City']);
+    $otherTeam = $tournament->teams()->create(['name' => 'FC Utrecht']);
+    $admin = User::factory()->admin()->create();
+    $field = 'team_name_'.$team->id;
+
+    $this->actingAs($admin)
+        ->get(route('admin.tournaments.edit', $tournament))
+        ->assertOk()
+        ->assertSee('Almere City')
+        ->assertSee('Team verwijderen');
+
+    $this->put(route('admin.tournaments.teams.update', ['tournament' => $tournament, 'team' => $team]), [
+        $field => 'Almere City FC',
+    ])
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHas('success', 'Team bijgewerkt.');
+
+    $this->from(route('admin.tournaments.edit', $tournament))
+        ->put(route('admin.tournaments.teams.update', ['tournament' => $tournament, 'team' => $team->fresh()]), [
+            $field => $otherTeam->name,
+        ])
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHasErrors($field);
+
+    expect($team->fresh()->name)->toBe('Almere City FC');
+});
+
+it('allows admins to delete teams and makes room for another team', function () {
+    $tournament = Tournament::create([
+        'name' => 'Team delete tournament',
+        'team_count' => 2,
+    ]);
+    $team = $tournament->teams()->create(['name' => 'Almere City']);
+    $admin = User::factory()->admin()->create();
+
+    $this->actingAs($admin)
+        ->delete(route('admin.tournaments.teams.destroy', ['tournament' => $tournament, 'team' => $team]))
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHas('success', 'Team verwijderd.');
+
+    $this->assertDatabaseMissing('teams', ['id' => $team->id]);
+
+    $this->get(route('admin.tournaments.edit', $tournament))
+        ->assertOk()
+        ->assertSee('0 / 2 teams')
+        ->assertSee('Team toevoegen');
+});
+
+it('does not allow managing a team through another tournament', function () {
+    $tournament = Tournament::create([
+        'name' => 'Original tournament',
+        'team_count' => 4,
+    ]);
+    $otherTournament = Tournament::create([
+        'name' => 'Other tournament',
+        'team_count' => 4,
+    ]);
+    $team = $tournament->teams()->create(['name' => 'Almere City']);
+
+    $this->actingAs(User::factory()->admin()->create())
+        ->put(route('admin.tournaments.teams.update', ['tournament' => $otherTournament, 'team' => $team]), [
+            'team_name_'.$team->id => 'Unauthorized rename',
+        ])
+        ->assertNotFound();
+
+    $this->delete(route('admin.tournaments.teams.destroy', ['tournament' => $otherTournament, 'team' => $team]))
+        ->assertNotFound();
+
+    expect($team->fresh()->name)->toBe('Almere City');
+});
+
 it('keeps tournament management away from members and guests', function () {
     $tournament = Tournament::create([
         'name' => 'Admin-only tournament',
         'team_count' => 16,
     ]);
+    $team = $tournament->teams()->create(['name' => 'Existing team']);
 
     $this->get(route('admin.tournaments.index'))
         ->assertRedirect(route('home'));
@@ -195,6 +272,12 @@ it('keeps tournament management away from members and guests', function () {
     $this->post(route('admin.tournaments.teams.store', $tournament), [
         'team_name' => 'Guest team',
     ])
+        ->assertRedirect(route('home'));
+    $this->put(route('admin.tournaments.teams.update', ['tournament' => $tournament, 'team' => $team]), [
+        'team_name_'.$team->id => 'Guest rename',
+    ])
+        ->assertRedirect(route('home'));
+    $this->delete(route('admin.tournaments.teams.destroy', ['tournament' => $tournament, 'team' => $team]))
         ->assertRedirect(route('home'));
 
     $member = User::factory()->create();
@@ -223,7 +306,16 @@ it('keeps tournament management away from members and guests', function () {
             'team_name' => 'Member team',
         ])
         ->assertRedirect(route('home'));
+    $this->actingAs($member)
+        ->put(route('admin.tournaments.teams.update', ['tournament' => $tournament, 'team' => $team]), [
+            'team_name_'.$team->id => 'Member rename',
+        ])
+        ->assertRedirect(route('home'));
+    $this->actingAs($member)
+        ->delete(route('admin.tournaments.teams.destroy', ['tournament' => $tournament, 'team' => $team]))
+        ->assertRedirect(route('home'));
 
     expect($tournament->fresh()->name)->toBe('Admin-only tournament');
-    $this->assertDatabaseCount('teams', 0);
+    expect($team->fresh()->name)->toBe('Existing team');
+    $this->assertDatabaseCount('teams', 1);
 });

@@ -238,6 +238,12 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->controller(AdminC
         Route::get('toernooien', [TournamentController::class, 'index'])->name('tournaments.index');
         Route::post('toernooien', [TournamentController::class, 'store'])->name('tournaments.store');
         Route::post('toernooien/{tournament}/teams', [TournamentTeamController::class, 'store'])->name('tournaments.teams.store');
+        Route::put('toernooien/{tournament}/teams/{team}', [TournamentTeamController::class, 'update'])
+            ->scopeBindings()
+            ->name('tournaments.teams.update');
+        Route::delete('toernooien/{tournament}/teams/{team}', [TournamentTeamController::class, 'destroy'])
+            ->scopeBindings()
+            ->name('tournaments.teams.destroy');
         Route::get('toernooien/{tournament}/bewerken', [TournamentController::class, 'edit'])->name('tournaments.edit');
         Route::put('toernooien/{tournament}', [TournamentController::class, 'update'])->name('tournaments.update');
         Route::middleware('auth')->prefix('bestanden')->name('documents.')->controller(\App\Http\Controllers\DocumentController::class)->group(function () {

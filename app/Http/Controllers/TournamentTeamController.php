@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Team;
 use App\Models\Tournament;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -38,5 +39,42 @@ class TournamentTeamController extends Controller
         return redirect()
             ->route('admin.tournaments.edit', $tournament)
             ->with('success', 'Team toegevoegd.');
+    }
+
+    public function update(Request $request, Tournament $tournament, Team $team): RedirectResponse
+    {
+        // Keep validation errors tied to the team row being edited.
+        $field = 'team_name_'.$team->id;
+        $validated = $request->validate([
+            $field => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('teams', 'name')
+                    ->where('tournament_id', $tournament->id)
+                    ->ignore($team->id),
+            ],
+        ], [
+            $field.'.required' => 'Vul een teamnaam in.',
+            $field.'.max' => 'De teamnaam mag maximaal 255 tekens bevatten.',
+            $field.'.unique' => 'Dit team staat al bij dit toernooi.',
+        ]);
+
+        $team->update([
+            'name' => $validated[$field],
+        ]);
+
+        return redirect()
+            ->route('admin.tournaments.edit', $tournament)
+            ->with('success', 'Team bijgewerkt.');
+    }
+
+    public function destroy(Tournament $tournament, Team $team): RedirectResponse
+    {
+        $team->delete();
+
+        return redirect()
+            ->route('admin.tournaments.edit', $tournament)
+            ->with('success', 'Team verwijderd.');
     }
 }
