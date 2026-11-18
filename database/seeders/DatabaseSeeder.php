@@ -44,9 +44,9 @@ class DatabaseSeeder extends Seeder
                 ActivitySeeder::class,
                 ApplicationSeeder::class,
                 ReportSeeder::class,
+                TournamentSeeder::class,
             ]);
         }
-
 
     }
 }

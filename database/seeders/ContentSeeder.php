@@ -4,8 +4,8 @@ namespace Database\Seeders;
 
 use App\FileType;
 use App\Models\Content;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Storage;
 
 class ContentSeeder extends Seeder
 {
@@ -260,13 +260,25 @@ class ContentSeeder extends Seeder
             'fileType' => FileType::Image,
         ]);
 
-        // Files
-        Content::create([
-            'type' => 'file',
+        // Keep the default background available on fresh installs without replacing existing uploads.
+        $backgroundPath = 'content/zijpalm_background.jpg';
+        $publicStorage = Storage::disk('public');
+
+        if (! $publicStorage->exists($backgroundPath)) {
+            $backgroundImage = file_get_contents(public_path('images/zijpalm_background.jpg'));
+
+            if ($backgroundImage === false || ! $publicStorage->put($backgroundPath, $backgroundImage)) {
+                throw new \RuntimeException('The default background image could not be copied to public storage.');
+            }
+        }
+
+        Content::firstOrCreate([
             'name' => 'background',
+        ], [
+            'type' => 'file',
             'title' => null,
             'text' => null,
-            'filePath' => 'content/zijpalm_background.jpg',
+            'filePath' => $backgroundPath,
             'fileType' => FileType::Image,
         ]);
 

@@ -3,6 +3,7 @@
     <div class="mr-10 w-full pb-4 md:w-[160px]">
         <flux:navlist>
             <flux:navlist.item :href="route('admin.activities')" wire:navigate>{{ __('Activiteiten') }}</flux:navlist.item>
+            <flux:navlist.item :href="route('admin.tournaments.index')" wire:navigate>{{ __('Toernooien') }}</flux:navlist.item>
             <flux:navlist.item :href="route('admin.users')" wire:navigate>{{ __('Gebruikers') }}</flux:navlist.item>
             <flux:navlist.item :href="route('admin.orders')" wire:navigate>{{ __('Bestellingen') }}</flux:navlist.item>
             <flux:navlist.item :href="route('admin.reports')" wire:navigate>{{ __('Verslagen') }}</flux:navlist.item>
@@ -15,7 +16,7 @@
     <flux:separator class="hidden md:block my-3 me-5" vertical />
     <flux:separator class="md:hidden" />
 
-    <div class="flex-1 self-stretch max-md:pt-6">
+    <div class="min-w-0 flex-1 self-stretch max-md:pt-6">
         <h1>{{ $heading ?? '' }}</h1>
         <h3>{{ $subheading ?? '' }}</h3>
 

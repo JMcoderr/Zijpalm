@@ -16,6 +16,7 @@ use App\Http\Controllers\InformationController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\TournamentController;
 use App\Http\Controllers\UserController;
 // Home view
 Route::view('/', 'home')->name('home');
@@ -232,6 +233,11 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->controller(AdminC
         Route::get('bestellingen/{order}', 'showOrder')->name('orders.show');
         Route::delete('bestellingen/{order}', 'deletePendingOrder')->name('orders.destroy');
         Route::get('content', 'content')->name('content');
+        // Keep football-pool tournament management inside the administrator-only area.
+        Route::get('toernooien', [TournamentController::class, 'index'])->name('tournaments.index');
+        Route::post('toernooien', [TournamentController::class, 'store'])->name('tournaments.store');
+        Route::get('toernooien/{tournament}/bewerken', [TournamentController::class, 'edit'])->name('tournaments.edit');
+        Route::put('toernooien/{tournament}', [TournamentController::class, 'update'])->name('tournaments.update');
         Route::middleware('auth')->prefix('bestanden')->name('documents.')->controller(\App\Http\Controllers\DocumentController::class)->group(function () {
             Route::get('/', 'index')->name('index');
             Route::post('/', 'store')->name('store');
@@ -248,10 +254,6 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->controller(AdminC
         Route::post('informeer-nieuwe-medewerkers', 'notifyNewEmployeesPOST')->name('notifyNewEmployeesPOST');
     }
 );
-
-// Football pool routes
-// Admins will manage tournaments here (create, list and later edit them).
-// The routes are added step by step while the football pool is being built.
 
 require __DIR__.'/auth.php';
 

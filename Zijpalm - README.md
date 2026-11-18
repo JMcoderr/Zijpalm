@@ -6,6 +6,9 @@ Om de app te draaien zijn er een aantal dependencies die je installeert met de v
 `composer install`  
 `npm install`
 
+Maak ook de publieke link aan voor afbeeldingen en bestanden in `storage/app/public`:
+`php artisan storage:link`
+
 Voor het live zetten via FileZilla/Strato, gebruik de checklist in `DEPLOYMENT.md`.
 
 Voor het live draaien is het belangrijk dat er een npm build wordt gedaan:  

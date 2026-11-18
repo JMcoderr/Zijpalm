@@ -1,0 +1,142 @@
+<?php
+
+use App\Models\Tournament;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+uses(RefreshDatabase::class);
+
+it('allows admins to create and view tournaments', function () {
+    $admin = User::factory()->admin()->create();
+
+    $this->actingAs($admin)
+        ->get(route('admin.tournaments.index'))
+        ->assertOk()
+        ->assertSee('Toernooi aanmaken')
+        ->assertSee('Er zijn nog geen toernooien aangemaakt.');
+
+    $this->post(route('admin.tournaments.store'), [
+        'name' => 'World Cup 2026',
+        'team_count' => 16,
+        'description' => 'Football tournament',
+        'starts_at' => '2026-06-11T20:00',
+    ])
+        ->assertRedirect(route('admin.tournaments.index'))
+        ->assertSessionHas('success', 'Toernooi aangemaakt.');
+
+    $tournament = Tournament::query()->firstOrFail();
+
+    expect($tournament->team_count)->toBe(16)
+        ->and($tournament->starts_at)->toBeInstanceOf(DateTimeInterface::class);
+
+    $this->get(route('admin.tournaments.index'))
+        ->assertOk()
+        ->assertSee('World Cup 2026')
+        ->assertSee('16')
+        ->assertSee('11-06-2026 20:00');
+});
+
+it('rejects a tournament with fewer than two teams', function () {
+    $this->actingAs(User::factory()->admin()->create())
+        ->from(route('admin.tournaments.index'))
+        ->post(route('admin.tournaments.store'), [
+            'name' => 'Invalid tournament',
+            'team_count' => 1,
+        ])
+        ->assertRedirect(route('admin.tournaments.index'))
+        ->assertSessionHasErrors('team_count');
+
+    $this->assertDatabaseCount('tournaments', 0);
+});
+
+it('allows admins to edit a tournament', function () {
+    $tournament = Tournament::create([
+        'name' => 'Old tournament name',
+        'team_count' => 16,
+        'description' => 'Old description',
+        'starts_at' => '2026-06-11 20:00:00',
+    ]);
+
+    $this->actingAs(User::factory()->admin()->create())
+        ->get(route('admin.tournaments.edit', $tournament))
+        ->assertOk()
+        ->assertSee('Toernooi bewerken')
+        ->assertSee('value="Old tournament name"', false)
+        ->assertSee('value="16"', false)
+        ->assertSee('value="2026-06-11T20:00"', false)
+        ->assertSee('Old description');
+
+    $this->put(route('admin.tournaments.update', $tournament), [
+        'name' => 'Updated tournament name',
+        'team_count' => 24,
+        'description' => 'Updated description',
+        'starts_at' => '2026-12-01T19:00',
+    ])
+        ->assertRedirect(route('admin.tournaments.index'))
+        ->assertSessionHas('success', 'Toernooi bijgewerkt.');
+
+    $this->assertDatabaseHas('tournaments', [
+        'id' => $tournament->id,
+        'name' => 'Updated tournament name',
+        'team_count' => 24,
+        'description' => 'Updated description',
+        'starts_at' => '2026-12-01 19:00:00',
+    ]);
+});
+
+it('keeps existing tournament data when an invalid edit is submitted', function () {
+    $tournament = Tournament::create([
+        'name' => 'Keep this tournament',
+        'team_count' => 16,
+        'description' => 'Keep this description',
+    ]);
+
+    $this->actingAs(User::factory()->admin()->create())
+        ->from(route('admin.tournaments.edit', $tournament))
+        ->put(route('admin.tournaments.update', $tournament), [
+            'name' => 'Do not save this',
+            'team_count' => 1,
+        ])
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHasErrors('team_count');
+
+    expect($tournament->fresh()->name)->toBe('Keep this tournament')
+        ->and($tournament->fresh()->team_count)->toBe(16)
+        ->and($tournament->fresh()->description)->toBe('Keep this description');
+});
+
+it('keeps tournament management away from members and guests', function () {
+    $tournament = Tournament::create([
+        'name' => 'Admin-only tournament',
+        'team_count' => 16,
+    ]);
+
+    $this->get(route('admin.tournaments.index'))
+        ->assertRedirect(route('home'));
+    $this->get(route('admin.tournaments.edit', $tournament))
+        ->assertRedirect(route('home'));
+
+    $member = User::factory()->create();
+
+    $this->actingAs($member)
+        ->get(route('admin.tournaments.index'))
+        ->assertRedirect(route('home'));
+    $this->actingAs($member)
+        ->get(route('admin.tournaments.edit', $tournament))
+        ->assertRedirect(route('home'));
+
+    $this->actingAs($member)
+        ->post(route('admin.tournaments.store'), [
+            'name' => 'Member tournament',
+            'team_count' => 16,
+        ])
+        ->assertRedirect(route('home'));
+    $this->actingAs($member)
+        ->put(route('admin.tournaments.update', $tournament), [
+            'name' => 'Unauthorized change',
+            'team_count' => 32,
+        ])
+        ->assertRedirect(route('home'));
+
+    expect($tournament->fresh()->name)->toBe('Admin-only tournament');
+});
