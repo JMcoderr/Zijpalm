@@ -30,12 +30,23 @@ class TournamentController extends Controller
 
     public function edit(Tournament $tournament): View
     {
+        $tournament->load('teams');
+
         return view('admin.tournaments-edit', compact('tournament'));
     }
 
     public function update(Request $request, Tournament $tournament): RedirectResponse
     {
-        $tournament->update($this->validatedTournamentData($request));
+        $validated = $this->validatedTournamentData($request);
+
+        // Keep the configured limit from dropping below teams already entered.
+        if ($validated['team_count'] < $tournament->teams()->count()) {
+            return back()
+                ->withErrors(['team_count' => 'Het aantal teams kan niet lager zijn dan het aantal toegevoegde teams.'])
+                ->withInput();
+        }
+
+        $tournament->update($validated);
 
         return redirect()
             ->route('admin.tournaments.index')

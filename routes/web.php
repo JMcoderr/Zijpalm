@@ -17,6 +17,7 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\TournamentController;
+use App\Http\Controllers\TournamentTeamController;
 use App\Http\Controllers\UserController;
 // Home view
 Route::view('/', 'home')->name('home');
@@ -236,6 +237,7 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->controller(AdminC
         // Keep football-pool tournament management inside the administrator-only area.
         Route::get('toernooien', [TournamentController::class, 'index'])->name('tournaments.index');
         Route::post('toernooien', [TournamentController::class, 'store'])->name('tournaments.store');
+        Route::post('toernooien/{tournament}/teams', [TournamentTeamController::class, 'store'])->name('tournaments.teams.store');
         Route::get('toernooien/{tournament}/bewerken', [TournamentController::class, 'edit'])->name('tournaments.edit');
         Route::put('toernooien/{tournament}', [TournamentController::class, 'update'])->name('tournaments.update');
         Route::middleware('auth')->prefix('bestanden')->name('documents.')->controller(\App\Http\Controllers\DocumentController::class)->group(function () {

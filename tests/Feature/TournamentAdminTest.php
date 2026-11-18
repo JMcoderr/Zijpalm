@@ -105,6 +105,83 @@ it('keeps existing tournament data when an invalid edit is submitted', function 
         ->and($tournament->fresh()->description)->toBe('Keep this description');
 });
 
+it('allows admins to add unique teams up to the tournament limit', function () {
+    $tournament = Tournament::create([
+        'name' => 'Team test tournament',
+        'team_count' => 2,
+    ]);
+
+    $admin = User::factory()->admin()->create();
+
+    $this->actingAs($admin)
+        ->get(route('admin.tournaments.edit', $tournament))
+        ->assertOk()
+        ->assertSee('0 / 2 teams')
+        ->assertSee('Team toevoegen');
+
+    $this->post(route('admin.tournaments.teams.store', $tournament), [
+        'team_name' => 'Almere City',
+    ])
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHas('success', 'Team toegevoegd.');
+
+    $this->post(route('admin.tournaments.teams.store', $tournament), [
+        'team_name' => 'FC Utrecht',
+    ])
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHas('success', 'Team toegevoegd.');
+
+    $this->from(route('admin.tournaments.edit', $tournament))
+        ->post(route('admin.tournaments.teams.store', $tournament), [
+            'team_name' => 'Almere City',
+        ])
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHasErrors('team_name');
+
+    $this->from(route('admin.tournaments.edit', $tournament))
+        ->post(route('admin.tournaments.teams.store', $tournament), [
+            'team_name' => 'Third team',
+        ])
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHasErrors('team_name');
+
+    $this->get(route('admin.tournaments.edit', $tournament))
+        ->assertOk()
+        ->assertSee('2 / 2 teams')
+        ->assertSee('Almere City')
+        ->assertSee('FC Utrecht')
+        ->assertSee('Het ingestelde aantal teams is bereikt.')
+        ->assertDontSee('Team toevoegen');
+
+    $this->assertDatabaseCount('teams', 2);
+});
+
+it('does not let admins lower the team limit below the number of added teams', function () {
+    $tournament = Tournament::create([
+        'name' => 'Tournament with teams',
+        'team_count' => 4,
+    ]);
+
+    $tournament->teams()->createMany([
+        ['name' => 'Almere City'],
+        ['name' => 'FC Utrecht'],
+        ['name' => 'Ajax'],
+    ]);
+
+    $this->actingAs(User::factory()->admin()->create())
+        ->from(route('admin.tournaments.edit', $tournament))
+        ->put(route('admin.tournaments.update', $tournament), [
+            'name' => $tournament->name,
+            'team_count' => 2,
+            'description' => null,
+            'starts_at' => null,
+        ])
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHasErrors('team_count');
+
+    expect($tournament->fresh()->team_count)->toBe(4);
+});
+
 it('keeps tournament management away from members and guests', function () {
     $tournament = Tournament::create([
         'name' => 'Admin-only tournament',
@@ -114,6 +191,10 @@ it('keeps tournament management away from members and guests', function () {
     $this->get(route('admin.tournaments.index'))
         ->assertRedirect(route('home'));
     $this->get(route('admin.tournaments.edit', $tournament))
+        ->assertRedirect(route('home'));
+    $this->post(route('admin.tournaments.teams.store', $tournament), [
+        'team_name' => 'Guest team',
+    ])
         ->assertRedirect(route('home'));
 
     $member = User::factory()->create();
@@ -137,6 +218,12 @@ it('keeps tournament management away from members and guests', function () {
             'team_count' => 32,
         ])
         ->assertRedirect(route('home'));
+    $this->actingAs($member)
+        ->post(route('admin.tournaments.teams.store', $tournament), [
+            'team_name' => 'Member team',
+        ])
+        ->assertRedirect(route('home'));
 
     expect($tournament->fresh()->name)->toBe('Admin-only tournament');
+    $this->assertDatabaseCount('teams', 0);
 });
