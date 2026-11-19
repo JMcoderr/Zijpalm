@@ -7,9 +7,35 @@ use App\Models\TournamentMatch;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\View\View;
 
 class TournamentPredictionController extends Controller
 {
+    public function index(Request $request, Tournament $tournament): View
+    {
+        // Keep this overview limited to the signed-in participant and selected tournament.
+        $participant = $request->user()
+            ->tournamentParticipations()
+            ->where('tournament_id', $tournament->id)
+            ->first();
+
+        $matches = $participant
+            ? $tournament->matches()
+                ->whereHas('predictions', fn ($query) => $query->where('tournament_participant_id', $participant->id))
+                ->with([
+                    'homeTeam.group',
+                    'awayTeam',
+                    'group',
+                    'predictions' => fn ($query) => $query->where('tournament_participant_id', $participant->id),
+                ])
+                ->orderBy('kickoff')
+                ->orderBy('match_number')
+                ->get()
+            : collect();
+
+        return view('football-pool.predictions', compact('tournament', 'participant', 'matches'));
+    }
+
     public function store(Request $request, Tournament $tournament, TournamentMatch $match): RedirectResponse
     {
         $participant = $request->user()

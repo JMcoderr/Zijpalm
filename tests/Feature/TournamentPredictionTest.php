@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\Tournament;
-use App\Models\TournamentMatch;
 use App\Models\User;
 use App\Support\TournamentTime;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -72,6 +71,94 @@ it('allows an enrolled member to save and update a private prediction', function
         ->assertSee('value="3"', false);
 });
 
+it('shows only the signed-in members predictions for the selected tournament', function () {
+    $tournament = Tournament::create([
+        'name' => 'My Predictions Cup',
+        'team_count' => 4,
+    ]);
+    $homeTeam = $tournament->teams()->create(['name' => 'My Predictions Home']);
+    $awayTeam = $tournament->teams()->create(['name' => 'My Predictions Away']);
+    $finishedMatch = $tournament->matches()->create([
+        'home_team_id' => $homeTeam->id,
+        'away_team_id' => $awayTeam->id,
+        'stage' => 'group',
+        'round_number' => 1,
+        'match_number' => 1,
+        'kickoff' => now()->subHour(),
+        'home_score' => 2,
+        'away_score' => 1,
+        'result_finalized' => true,
+    ]);
+    $upcomingMatch = $tournament->matches()->create([
+        'home_team_id' => $homeTeam->id,
+        'away_team_id' => $awayTeam->id,
+        'stage' => 'knockout',
+        'round_number' => 1,
+        'match_number' => 1,
+        'kickoff' => now()->addHour(),
+    ]);
+    $member = User::factory()->create();
+    $participant = $tournament->participants()->create(['user_id' => $member->id]);
+    $otherParticipant = $tournament->participants()->create([
+        'user_id' => User::factory()->create()->id,
+    ]);
+    $participant->predictions()->create([
+        'match_id' => $finishedMatch->id,
+        'home_score' => 2,
+        'away_score' => 1,
+        'points' => 5,
+    ]);
+    $participant->predictions()->create([
+        'match_id' => $upcomingMatch->id,
+        'home_score' => 1,
+        'away_score' => 1,
+        'penalty_winner' => 'away',
+    ]);
+    $otherParticipant->predictions()->create([
+        'match_id' => $finishedMatch->id,
+        'home_score' => 7,
+        'away_score' => 0,
+    ]);
+
+    $otherTournament = Tournament::create([
+        'name' => 'Other Predictions Cup',
+        'team_count' => 2,
+    ]);
+    $otherHomeTeam = $otherTournament->teams()->create(['name' => 'Other Tournament Home']);
+    $otherAwayTeam = $otherTournament->teams()->create(['name' => 'Other Tournament Away']);
+    $otherMatch = $otherTournament->matches()->create([
+        'home_team_id' => $otherHomeTeam->id,
+        'away_team_id' => $otherAwayTeam->id,
+        'stage' => 'group',
+        'round_number' => 1,
+        'match_number' => 1,
+        'kickoff' => now()->addDays(2),
+    ]);
+    $otherTournamentParticipant = $otherTournament->participants()->create(['user_id' => $member->id]);
+    $otherTournamentParticipant->predictions()->create([
+        'match_id' => $otherMatch->id,
+        'home_score' => 9,
+        'away_score' => 0,
+    ]);
+
+    $this->actingAs($member)
+        ->get(route('football-pool.matches.predictions.index', $tournament))
+        ->assertOk()
+        ->assertSee('Mijn voorspellingen')
+        ->assertSee('Jouw voorspelling: 2 - 1')
+        ->assertSee('Punten verdiend: 5')
+        ->assertSee('Uitslag nog niet bekend.')
+        ->assertSee('penaltywinnaar')
+        ->assertSee(route('football-pool.matches', $tournament).'#match-'.$finishedMatch->id, false)
+        ->assertDontSee('Jouw voorspelling: 7 - 0')
+        ->assertDontSee('Other Tournament Home')
+        ->assertDontSee('Jouw voorspelling: 9 - 0');
+
+    $this->get(route('football-pool.matches', $tournament))
+        ->assertOk()
+        ->assertSee(route('football-pool.matches.predictions.index', $tournament), false);
+});
+
 // Only enrolled, signed-in members may submit predictions for a tournament.
 it('requires a tournament registration before accepting predictions', function () {
     $tournament = Tournament::create([
@@ -118,6 +205,29 @@ it('requires a tournament registration before accepting predictions', function (
         ->assertDontSee('name="predicted_home_score_'.$match->id.'"', false);
 
     $this->assertDatabaseCount('tournament_predictions', 0);
+});
+
+it('shows an enrollment message when a member has no predictions for a tournament', function () {
+    $tournament = Tournament::create([
+        'name' => 'No Prediction Overview Cup',
+        'team_count' => 4,
+    ]);
+
+    $this->actingAs(User::factory()->create())
+        ->get(route('football-pool.matches.predictions.index', $tournament))
+        ->assertOk()
+        ->assertSee('Meld je eerst aan voor dit toernooi om voorspellingen te bekijken.')
+        ->assertSee(route('football-pool.index'), false);
+});
+
+it('requires a signed-in user to view the predictions overview', function () {
+    $tournament = Tournament::create([
+        'name' => 'Login Required Overview Cup',
+        'team_count' => 4,
+    ]);
+
+    $this->get(route('football-pool.matches.predictions.index', $tournament))
+        ->assertRedirect();
 });
 
 // The server must reject submissions at or after kickoff, even if a stale form is still open.

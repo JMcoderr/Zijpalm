@@ -6,6 +6,11 @@
                 <p class="mt-1 text-sm text-zinc-700">{{ $tournament->name }}</p>
             </div>
             <div class="flex flex-wrap gap-4">
+                @auth
+                    <a href="{{ route('football-pool.matches.predictions.index', $tournament) }}" class="text-sm font-semibold text-zijpalm-800 underline underline-offset-2 hover:text-zijpalm-950">
+                        Mijn voorspellingen
+                    </a>
+                @endauth
                 <a href="{{ route('football-pool.leaderboard', $tournament) }}" class="text-sm font-semibold text-zijpalm-800 underline underline-offset-2 hover:text-zijpalm-950">
                     Ranglijst
                 </a>
@@ -36,7 +41,7 @@
 
         @forelse ($matches as $match)
             @php($matchGroup = $match->group ?? $match->homeTeam?->group)
-            <article class="mb-3 rounded-lg border border-zinc-300 bg-white p-4 text-zinc-900 shadow-sm last:mb-0">
+            <article id="match-{{ $match->id }}" class="mb-3 rounded-lg border border-zinc-300 bg-white p-4 text-zinc-900 shadow-sm last:mb-0">
                 <p class="mb-3 text-sm text-zinc-600">
                     @if ($match->stage === 'group' && $matchGroup)
                         Poule {{ $matchGroup->name }} ·
