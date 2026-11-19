@@ -196,6 +196,68 @@ it('closes group predictions when the tournament starts before kickoff', functio
     $this->assertDatabaseCount('tournament_predictions', 0);
 });
 
+// Generated group matches follow the same tournament-wide prediction deadline.
+it('allows predictions for a generated later-round match only until the tournament starts', function () {
+    $start = TournamentTime::fromLocalInput('2026-06-11T18:00');
+    $tournament = Tournament::create([
+        'name' => 'Generated Prediction Cup',
+        'team_count' => 4,
+        'starts_at' => $start,
+    ]);
+    $group = $tournament->groups()->create(['name' => 'A']);
+
+    foreach (['Prediction One', 'Prediction Two', 'Prediction Three', 'Prediction Four'] as $teamName) {
+        $tournament->teams()->create([
+            'name' => $teamName,
+            'tournament_group_id' => $group->id,
+        ]);
+    }
+
+    $this->actingAs(User::factory()->admin()->create())
+        ->post(route('admin.tournaments.schedule.generate', $tournament))
+        ->assertRedirect(route('admin.tournaments.edit', $tournament));
+
+    $match = $tournament->matches()->where('round_number', 2)->firstOrFail();
+    $member = User::factory()->create();
+    $tournament->participants()->create(['user_id' => $member->id]);
+    $predictionRoute = route('football-pool.matches.predictions.store', [
+        'tournament' => $tournament,
+        'match' => $match,
+    ]);
+    $homeScoreField = 'predicted_home_score_'.$match->id;
+    $awayScoreField = 'predicted_away_score_'.$match->id;
+
+    $this->travelTo($start->copy()->subMinute());
+    $this->actingAs($member)
+        ->put($predictionRoute, [
+            $homeScoreField => 2,
+            $awayScoreField => 1,
+        ])
+        ->assertRedirect(route('football-pool.matches', $tournament))
+        ->assertSessionHas('success', 'Je voorspelling is opgeslagen.');
+
+    $this->assertDatabaseHas('tournament_predictions', [
+        'match_id' => $match->id,
+        'home_score' => 2,
+        'away_score' => 1,
+    ]);
+
+    $this->travelTo($start);
+    $this->put($predictionRoute, [
+        $homeScoreField => 3,
+        $awayScoreField => 0,
+    ])
+        ->assertRedirect(route('football-pool.matches', $tournament))
+        ->assertSessionHas('error', 'De deadline voor deze voorspelling is verstreken.');
+
+    $this->assertDatabaseHas('tournament_predictions', [
+        'match_id' => $match->id,
+        'home_score' => 2,
+        'away_score' => 1,
+    ]);
+    $this->assertDatabaseCount('tournament_predictions', 1);
+});
+
 // A tied knockout prediction needs a penalty winner, while group scores stay within the reference range.
 it('validates prediction scores and knockout penalty picks', function () {
     $tournament = Tournament::create([
