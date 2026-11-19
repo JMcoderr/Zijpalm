@@ -23,9 +23,14 @@
                     {{ $tournament->participants_count }} {{ $tournament->participants_count === 1 ? 'deelnemer' : 'deelnemers' }}
                 </p>
 
-                <a href="{{ route('football-pool.matches', $tournament) }}" class="mt-3 inline-flex text-sm font-semibold text-zijpalm-800 underline underline-offset-2 hover:text-zijpalm-950">
-                    Bekijk wedstrijden ({{ $tournament->matches_count }})
-                </a>
+                <div class="mt-3 flex flex-wrap gap-4">
+                    <a href="{{ route('football-pool.matches', $tournament) }}" class="inline-flex text-sm font-semibold text-zijpalm-800 underline underline-offset-2 hover:text-zijpalm-950">
+                        Bekijk wedstrijden ({{ $tournament->matches_count }})
+                    </a>
+                    <a href="{{ route('football-pool.leaderboard', $tournament) }}" class="inline-flex text-sm font-semibold text-zijpalm-800 underline underline-offset-2 hover:text-zijpalm-950">
+                        Bekijk ranglijst
+                    </a>
+                </div>
 
                 <div class="mt-4">
                     @auth

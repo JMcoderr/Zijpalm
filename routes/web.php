@@ -19,6 +19,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\TournamentParticipantController;
 use App\Http\Controllers\TournamentController;
 use App\Http\Controllers\TournamentGroupController;
+use App\Http\Controllers\TournamentLeaderboardController;
 use App\Http\Controllers\TournamentMatchController;
 use App\Http\Controllers\TournamentPredictionController;
 use App\Http\Controllers\TournamentScheduleController;
@@ -29,6 +30,8 @@ Route::view('/', 'home')->name('home');
 Route::get('voetbalpoule', [TournamentParticipantController::class, 'index'])->name('football-pool.index');
 Route::get('voetbalpoule/{tournament}/wedstrijden', [TournamentMatchController::class, 'index'])
     ->name('football-pool.matches');
+Route::get('voetbalpoule/{tournament}/ranglijst', [TournamentLeaderboardController::class, 'index'])
+    ->name('football-pool.leaderboard');
 Route::middleware('auth')->put('voetbalpoule/{tournament}/wedstrijden/{match}/voorspelling', [TournamentPredictionController::class, 'store'])
     ->scopeBindings()
     ->name('football-pool.matches.predictions.store');

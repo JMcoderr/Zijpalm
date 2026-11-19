@@ -5,9 +5,14 @@
                 <h1 class="text-2xl font-bold text-zinc-900">Wedstrijden</h1>
                 <p class="mt-1 text-sm text-zinc-700">{{ $tournament->name }}</p>
             </div>
-            <a href="{{ route('football-pool.index') }}" class="text-sm font-semibold text-zijpalm-800 underline underline-offset-2 hover:text-zijpalm-950">
-                Terug naar toernooien
-            </a>
+            <div class="flex flex-wrap gap-4">
+                <a href="{{ route('football-pool.leaderboard', $tournament) }}" class="text-sm font-semibold text-zijpalm-800 underline underline-offset-2 hover:text-zijpalm-950">
+                    Ranglijst
+                </a>
+                <a href="{{ route('football-pool.index') }}" class="text-sm font-semibold text-zijpalm-800 underline underline-offset-2 hover:text-zijpalm-950">
+                    Terug naar toernooien
+                </a>
+            </div>
         </div>
 
         @if (session('success'))
