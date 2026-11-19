@@ -10,12 +10,18 @@ class Team extends Model
 {
     protected $fillable = [
         'tournament_id',
+        'tournament_group_id',
         'name',
     ];
 
     public function tournament(): BelongsTo
     {
         return $this->belongsTo(Tournament::class);
+    }
+
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(TournamentGroup::class, 'tournament_group_id');
     }
 
     public function homeMatches(): HasMany

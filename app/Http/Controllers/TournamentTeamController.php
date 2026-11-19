@@ -19,10 +19,17 @@ class TournamentTeamController extends Controller
                 'max:255',
                 Rule::unique('teams', 'name')->where('tournament_id', $tournament->id),
             ],
+            'team_group_id' => [
+                'sometimes',
+                'nullable',
+                'integer',
+                Rule::exists('tournament_groups', 'id')->where('tournament_id', $tournament->id),
+            ],
         ], [
             'team_name.required' => 'Vul een teamnaam in.',
             'team_name.max' => 'De teamnaam mag maximaal 255 tekens bevatten.',
             'team_name.unique' => 'Dit team staat al bij dit toernooi.',
+            'team_group_id.exists' => 'Kies een poule van dit toernooi.',
         ]);
 
         // Keep the number of registered teams within the tournament's configured total.
@@ -34,6 +41,7 @@ class TournamentTeamController extends Controller
 
         $tournament->teams()->create([
             'name' => $validated['team_name'],
+            'tournament_group_id' => $validated['team_group_id'] ?? null,
         ]);
 
         return redirect()
@@ -45,6 +53,9 @@ class TournamentTeamController extends Controller
     {
         // Keep validation errors tied to the team row being edited.
         $field = 'team_name_'.$team->id;
+        $groupField = 'team_group_id_'.$team->id;
+
+        // A team can only be placed in a group belonging to its tournament.
         $validated = $request->validate([
             $field => [
                 'required',
@@ -54,15 +65,28 @@ class TournamentTeamController extends Controller
                     ->where('tournament_id', $tournament->id)
                     ->ignore($team->id),
             ],
+            $groupField => [
+                'sometimes',
+                'nullable',
+                'integer',
+                Rule::exists('tournament_groups', 'id')->where('tournament_id', $tournament->id),
+            ],
         ], [
             $field.'.required' => 'Vul een teamnaam in.',
             $field.'.max' => 'De teamnaam mag maximaal 255 tekens bevatten.',
             $field.'.unique' => 'Dit team staat al bij dit toernooi.',
+            $groupField.'.exists' => 'Kies een poule van dit toernooi.',
         ]);
 
-        $team->update([
+        $teamData = [
             'name' => $validated[$field],
-        ]);
+        ];
+
+        if (array_key_exists($groupField, $validated)) {
+            $teamData['tournament_group_id'] = $validated[$groupField];
+        }
+
+        $team->update($teamData);
 
         return redirect()
             ->route('admin.tournaments.edit', $tournament)

@@ -18,6 +18,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\TournamentParticipantController;
 use App\Http\Controllers\TournamentController;
+use App\Http\Controllers\TournamentGroupController;
 use App\Http\Controllers\TournamentMatchController;
 use App\Http\Controllers\TournamentPredictionController;
 use App\Http\Controllers\TournamentTeamController;
@@ -248,6 +249,11 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->controller(AdminC
         // Keep football-pool tournament management inside the administrator-only area.
         Route::get('toernooien', [TournamentController::class, 'index'])->name('tournaments.index');
         Route::post('toernooien', [TournamentController::class, 'store'])->name('tournaments.store');
+        Route::post('toernooien/{tournament}/poules', [TournamentGroupController::class, 'store'])
+            ->name('tournaments.groups.store');
+        Route::delete('toernooien/{tournament}/poules/{group}', [TournamentGroupController::class, 'destroy'])
+            ->scopeBindings()
+            ->name('tournaments.groups.destroy');
         Route::post('toernooien/{tournament}/wedstrijden', [TournamentMatchController::class, 'store'])
             ->name('tournaments.matches.store');
         Route::put('toernooien/{tournament}/wedstrijden/{match}/uitslag', [TournamentMatchController::class, 'update'])

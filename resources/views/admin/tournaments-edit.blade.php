@@ -3,6 +3,53 @@
         <x-admin.layout :heading="__('Toernooi bewerken')" :subheading="$tournament->name">
             @include('admin.tournaments._form', ['tournament' => $tournament])
 
+        <section aria-labelledby="tournament-groups-heading" class="border-t border-zinc-300/80 pt-6">
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <h2 id="tournament-groups-heading" class="text-lg font-bold text-zinc-900">Poules</h2>
+            </div>
+
+            @if ($tournament->groups->isEmpty())
+                <p class="mb-4 text-sm text-zinc-700">Er zijn nog geen poules aangemaakt.</p>
+            @else
+                <ul class="mb-4 grid gap-2 sm:grid-cols-2">
+                    @foreach ($tournament->groups as $group)
+                        <li class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-300 bg-white p-3 text-sm text-zinc-900">
+                            <span>
+                                <span class="font-semibold">Poule {{ $group->name }}</span>
+                                <span class="text-zinc-600">· {{ $group->teams->count() }} teams</span>
+                            </span>
+                            @if ($group->teams->isEmpty())
+                                <form method="POST" action="{{ route('admin.tournaments.groups.destroy', ['tournament' => $tournament, 'group' => $group]) }}" onsubmit="return confirm('Weet je zeker dat je deze poule wilt verwijderen?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="inline-flex h-9 items-center justify-center rounded-lg border border-red-300 px-3 text-sm font-semibold text-red-700 transition hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+                                        Poule verwijderen
+                                    </button>
+                                </form>
+                            @else
+                                <span class="text-xs text-zinc-600">Verplaats eerst de teams om deze poule te verwijderen.</span>
+                            @endif
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+
+            <form method="POST" action="{{ route('admin.tournaments.groups.store', $tournament) }}" class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                @csrf
+                <div class="min-w-0 flex-1">
+                    <label for="group_name" class="mb-1 block text-sm font-semibold text-zinc-800">Poulenaam</label>
+                    <input id="group_name" name="group_name" type="text" value="{{ old('group_name') }}" maxlength="32" required
+                           class="h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">
+                    @error('group_name')
+                        <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p>
+                    @enderror
+                </div>
+                <button type="submit" class="inline-flex h-11 items-center justify-center rounded-lg bg-zijpalm-700 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-zijpalm-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zijpalm-700">
+                    Poule toevoegen
+                </button>
+            </form>
+        </section>
+
             <section aria-labelledby="tournament-teams-heading" class="border-t border-zinc-300/80 pt-6">
                 <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
                     <h2 id="tournament-teams-heading" class="text-lg font-bold text-zinc-900">Teams</h2>
@@ -17,19 +64,34 @@
                     <ul class="mb-4 grid gap-2 sm:grid-cols-2">
                         @foreach ($tournament->teams as $team)
                             @php($teamNameField = 'team_name_'.$team->id)
+                            @php($teamGroupField = 'team_group_id_'.$team->id)
                             <li class="rounded-lg border border-zinc-300 bg-white p-3 text-sm text-zinc-900">
                                 <form method="POST" action="{{ route('admin.tournaments.teams.update', ['tournament' => $tournament, 'team' => $team]) }}" class="flex flex-col gap-2">
                                     @csrf
                                     @method('PUT')
-                                    <label for="{{ $teamNameField }}" class="font-semibold text-zinc-800">Teamnaam</label>
-                                    <div class="flex flex-col gap-2 sm:flex-row">
-                                        <input id="{{ $teamNameField }}" name="{{ $teamNameField }}" type="text" value="{{ old($teamNameField, $team->name) }}" maxlength="255" required
-                                               class="h-10 min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">
+                                    <div class="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                                        <div>
+                                            <label for="{{ $teamNameField }}" class="mb-1 block font-semibold text-zinc-800">Teamnaam</label>
+                                            <input id="{{ $teamNameField }}" name="{{ $teamNameField }}" type="text" value="{{ old($teamNameField, $team->name) }}" maxlength="255" required
+                                                   class="h-10 w-full min-w-0 rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">
+                                        </div>
+                                        <div>
+                                            <label for="{{ $teamGroupField }}" class="mb-1 block font-semibold text-zinc-800">Poule</label>
+                                            <select id="{{ $teamGroupField }}" name="{{ $teamGroupField }}" class="h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">
+                                                <option value="">Geen poule</option>
+                                                @foreach ($tournament->groups as $group)
+                                                    <option value="{{ $group->id }}" @selected(old($teamGroupField, $team->tournament_group_id) == $group->id)>Poule {{ $group->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
                                         <button type="submit" class="inline-flex h-10 items-center justify-center rounded-lg bg-zijpalm-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-zijpalm-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zijpalm-700">
-                                            Naam opslaan
+                                            Team opslaan
                                         </button>
                                     </div>
                                     @error($teamNameField)
+                                        <p role="alert" class="text-sm text-red-700">{{ $message }}</p>
+                                    @enderror
+                                    @error($teamGroupField)
                                         <p role="alert" class="text-sm text-red-700">{{ $message }}</p>
                                     @enderror
                                 </form>
@@ -46,13 +108,25 @@
                 @endif
 
                 @if ($tournament->teams->count() < $tournament->team_count)
-                    <form method="POST" action="{{ route('admin.tournaments.teams.store', $tournament) }}" class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                    <form method="POST" action="{{ route('admin.tournaments.teams.store', $tournament) }}" class="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
                         @csrf
-                        <div class="min-w-0 flex-1">
+                        <div>
                             <label for="team_name" class="mb-1 block text-sm font-semibold text-zinc-800">Teamnaam</label>
                             <input id="team_name" name="team_name" type="text" value="{{ old('team_name') }}" maxlength="255" required
                                    class="h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">
                             @error('team_name')
+                                <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div>
+                            <label for="team_group_id" class="mb-1 block text-sm font-semibold text-zinc-800">Poule</label>
+                            <select id="team_group_id" name="team_group_id" class="h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">
+                                <option value="">Geen poule</option>
+                                @foreach ($tournament->groups as $group)
+                                    <option value="{{ $group->id }}" @selected(old('team_group_id') == $group->id)>Poule {{ $group->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('team_group_id')
                                 <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p>
                             @enderror
                         </div>

@@ -48,10 +48,21 @@ class TournamentSeeder extends Seeder
             'Stripheldenbuurt',
             'Overgooi',
         ];
+        $groups = [];
+
+        foreach (['A', 'B', 'C', 'D'] as $groupName) {
+            $groups[$groupName] = $tournament->groups()->firstOrCreate(['name' => $groupName]);
+        }
+
         $teams = [];
 
-        foreach ($teamNames as $teamName) {
-            $teams[$teamName] = $tournament->teams()->firstOrCreate(['name' => $teamName]);
+        // Split the demo teams evenly so group assignment can be tested locally.
+        foreach ($teamNames as $index => $teamName) {
+            $groupName = chr(ord('A') + intdiv($index, 4));
+            $teams[$teamName] = $tournament->teams()->updateOrCreate(
+                ['name' => $teamName],
+                ['tournament_group_id' => $groups[$groupName]->id],
+            );
         }
 
         // Include finished and upcoming fixtures so both schedule and score displays can be checked locally.

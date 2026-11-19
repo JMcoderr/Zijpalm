@@ -24,6 +24,11 @@ class Tournament extends Model
         return $this->hasMany(Team::class);
     }
 
+    public function groups(): HasMany
+    {
+        return $this->hasMany(TournamentGroup::class);
+    }
+
     public function participants(): HasMany
     {
         return $this->hasMany(TournamentParticipant::class);
