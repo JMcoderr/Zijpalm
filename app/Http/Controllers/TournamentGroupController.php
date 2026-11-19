@@ -12,6 +12,12 @@ class TournamentGroupController extends Controller
 {
     public function store(Request $request, Tournament $tournament): RedirectResponse
     {
+        if ($tournament->matches()->whereNotNull('tournament_group_id')->exists()) {
+            return back()
+                ->withErrors(['group_name' => 'Er kunnen geen poules meer worden toegevoegd nadat het schema is gegenereerd.'])
+                ->withInput();
+        }
+
         $validated = $request->validate([
             'group_name' => [
                 'required',

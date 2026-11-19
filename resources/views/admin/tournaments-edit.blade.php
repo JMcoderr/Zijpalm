@@ -34,20 +34,22 @@
                 </ul>
             @endif
 
-            <form method="POST" action="{{ route('admin.tournaments.groups.store', $tournament) }}" class="flex flex-col gap-3 sm:flex-row sm:items-end">
-                @csrf
-                <div class="min-w-0 flex-1">
-                    <label for="group_name" class="mb-1 block text-sm font-semibold text-zinc-800">Poulenaam</label>
-                    <input id="group_name" name="group_name" type="text" value="{{ old('group_name') }}" maxlength="32" required
-                           class="h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">
-                    @error('group_name')
-                        <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p>
-                    @enderror
-                </div>
-                <button type="submit" class="inline-flex h-11 items-center justify-center rounded-lg bg-zijpalm-700 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-zijpalm-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zijpalm-700">
-                    Poule toevoegen
-                </button>
-            </form>
+            @unless ($hasGeneratedSchedule)
+                <form method="POST" action="{{ route('admin.tournaments.groups.store', $tournament) }}" class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                    @csrf
+                    <div class="min-w-0 flex-1">
+                        <label for="group_name" class="mb-1 block text-sm font-semibold text-zinc-800">Poulenaam</label>
+                        <input id="group_name" name="group_name" type="text" value="{{ old('group_name') }}" maxlength="32" required
+                               class="h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">
+                        @error('group_name')
+                            <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <button type="submit" class="inline-flex h-11 items-center justify-center rounded-lg bg-zijpalm-700 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-zijpalm-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zijpalm-700">
+                        Poule toevoegen
+                    </button>
+                </form>
+            @endunless
         </section>
 
             <section aria-labelledby="tournament-teams-heading" class="border-t border-zinc-300/80 pt-6">
@@ -76,13 +78,18 @@
                                                    class="h-10 w-full min-w-0 rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">
                                         </div>
                                         <div>
-                                            <label for="{{ $teamGroupField }}" class="mb-1 block font-semibold text-zinc-800">Poule</label>
-                                            <select id="{{ $teamGroupField }}" name="{{ $teamGroupField }}" class="h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">
-                                                <option value="">Geen poule</option>
-                                                @foreach ($tournament->groups as $group)
-                                                    <option value="{{ $group->id }}" @selected(old($teamGroupField, $team->tournament_group_id) == $group->id)>Poule {{ $group->name }}</option>
-                                                @endforeach
-                                            </select>
+                                            @if ($hasGeneratedSchedule)
+                                                <span class="block text-sm font-semibold text-zinc-800">Poule</span>
+                                                <p class="flex h-10 items-center text-sm text-zinc-700">{{ $team->group?->name ? 'Poule '.$team->group->name : 'Geen poule' }}</p>
+                                            @else
+                                                <label for="{{ $teamGroupField }}" class="mb-1 block font-semibold text-zinc-800">Poule</label>
+                                                <select id="{{ $teamGroupField }}" name="{{ $teamGroupField }}" class="h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">
+                                                    <option value="">Geen poule</option>
+                                                    @foreach ($tournament->groups as $group)
+                                                        <option value="{{ $group->id }}" @selected(old($teamGroupField, $team->tournament_group_id) == $group->id)>Poule {{ $group->name }}</option>
+                                                    @endforeach
+                                                </select>
+                                            @endif
                                         </div>
                                         <button type="submit" class="inline-flex h-10 items-center justify-center rounded-lg bg-zijpalm-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-zijpalm-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zijpalm-700">
                                             Team opslaan
@@ -107,7 +114,9 @@
                     </ul>
                 @endif
 
-                @if ($tournament->teams->count() < $tournament->team_count)
+                @if ($hasGeneratedSchedule)
+                    <p role="status" class="text-sm font-semibold text-zinc-700">Teams en poule-indeling kunnen niet meer worden gewijzigd nadat het schema is gegenereerd.</p>
+                @elseif ($tournament->teams->count() < $tournament->team_count)
                     <form method="POST" action="{{ route('admin.tournaments.teams.store', $tournament) }}" class="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
                         @csrf
                         <div>
@@ -147,13 +156,23 @@
 
                 @if ($tournament->matches->isEmpty())
                     <p class="mb-4 text-sm text-zinc-700">Er zijn nog geen wedstrijden toegevoegd.</p>
+                    <form method="POST" action="{{ route('admin.tournaments.schedule.generate', $tournament) }}" class="mb-4">
+                        @csrf
+                        <button type="submit" class="inline-flex h-11 items-center justify-center rounded-lg bg-zijpalm-700 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-zijpalm-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zijpalm-700">
+                            Wedstrijdschema genereren
+                        </button>
+                    </form>
                 @else
                     <ul class="mb-4 space-y-2">
                         @foreach ($tournament->matches as $match)
                             <li class="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900">
+                                @php($matchGroup = $match->group ?? $match->homeTeam?->group)
                                 <span class="font-semibold">{{ $match->homeTeam?->name ?? 'Nog te bepalen' }}</span>
                                 <span class="px-1">-</span>
                                 <span class="font-semibold">{{ $match->awayTeam?->name ?? 'Nog te bepalen' }}</span>
+                                @if ($matchGroup)
+                                    <span class="text-zinc-600">· Poule {{ $matchGroup->name }}</span>
+                                @endif
                                 <span class="text-zinc-600">· {{ \App\Support\TournamentTime::formatLocal($match->kickoff, 'd-m-Y H:i') }}</span>
                                 @php($homeScoreField = 'home_score_'.$match->id)
                                 @php($awayScoreField = 'away_score_'.$match->id)
@@ -202,7 +221,13 @@
                     </ul>
                 @endif
 
-                @if ($tournament->teams->count() >= 2)
+                @error('schedule')
+                    <p role="alert" class="mb-4 text-sm text-red-700">{{ $message }}</p>
+                @enderror
+
+                @if ($hasGeneratedSchedule)
+                    <p role="status" class="mb-4 text-sm font-semibold text-zinc-700">Het groepsschema is gegenereerd. Wedstrijden kunnen niet meer handmatig worden toegevoegd.</p>
+                @elseif ($tournament->teams->count() >= 2)
                     <form method="POST" action="{{ route('admin.tournaments.matches.store', $tournament) }}" class="grid gap-3 sm:grid-cols-2">
                         @csrf
                         <div>

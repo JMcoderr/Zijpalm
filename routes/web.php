@@ -21,6 +21,7 @@ use App\Http\Controllers\TournamentController;
 use App\Http\Controllers\TournamentGroupController;
 use App\Http\Controllers\TournamentMatchController;
 use App\Http\Controllers\TournamentPredictionController;
+use App\Http\Controllers\TournamentScheduleController;
 use App\Http\Controllers\TournamentTeamController;
 use App\Http\Controllers\UserController;
 // Home view
@@ -254,6 +255,8 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->controller(AdminC
         Route::delete('toernooien/{tournament}/poules/{group}', [TournamentGroupController::class, 'destroy'])
             ->scopeBindings()
             ->name('tournaments.groups.destroy');
+        Route::post('toernooien/{tournament}/wedstrijdschema', [TournamentScheduleController::class, 'store'])
+            ->name('tournaments.schedule.generate');
         Route::post('toernooien/{tournament}/wedstrijden', [TournamentMatchController::class, 'store'])
             ->name('tournaments.matches.store');
         Route::put('toernooien/{tournament}/wedstrijden/{match}/uitslag', [TournamentMatchController::class, 'update'])

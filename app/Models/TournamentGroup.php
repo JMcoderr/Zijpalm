@@ -22,4 +22,9 @@ class TournamentGroup extends Model
     {
         return $this->hasMany(Team::class);
     }
+
+    public function matches(): HasMany
+    {
+        return $this->hasMany(TournamentMatch::class);
+    }
 }

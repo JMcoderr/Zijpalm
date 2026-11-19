@@ -60,6 +60,11 @@ it('seeds a reusable tournament with demo teams and matches for local developmen
     ]);
 
     $tournament = Tournament::where('name', 'Voorbeeldtoernooi')->firstOrFail();
+    $this->assertDatabaseHas('teams', [
+        'name' => 'Almere Noord',
+        'tournament_group_id' => $tournament->groups()->where('name', 'A')->value('id'),
+    ]);
+
     $this->get(route('football-pool.matches', $tournament))
         ->assertOk()
         ->assertSee('Almere Noord')

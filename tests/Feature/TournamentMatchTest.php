@@ -121,6 +121,35 @@ it('rejects a team from another tournament and a match against the same team', f
     $this->assertDatabaseCount('matches', 0);
 });
 
+// Group-stage fixtures must keep both participating teams in the same poule.
+it('rejects manual fixtures between teams from different groups', function () {
+    $tournament = Tournament::create([
+        'name' => 'Group fixture cup',
+        'team_count' => 4,
+    ]);
+    $homeGroup = $tournament->groups()->create(['name' => 'A']);
+    $awayGroup = $tournament->groups()->create(['name' => 'B']);
+    $homeTeam = $tournament->teams()->create([
+        'name' => 'Group A home',
+        'tournament_group_id' => $homeGroup->id,
+    ]);
+    $awayTeam = $tournament->teams()->create([
+        'name' => 'Group B away',
+        'tournament_group_id' => $awayGroup->id,
+    ]);
+
+    $this->actingAs(User::factory()->admin()->create())
+        ->from(route('admin.tournaments.edit', $tournament))
+        ->post(route('admin.tournaments.matches.store', $tournament), [
+            'home_team_id' => $homeTeam->id,
+            'away_team_id' => $awayTeam->id,
+            'kickoff' => '2026-06-11T18:00',
+        ])
+        ->assertSessionHasErrors('away_team_id');
+
+    $this->assertDatabaseCount('matches', 0);
+});
+
 // Existing fixtures must keep their participating teams so the schedule remains valid.
 it('keeps teams from being removed while they are assigned to a match', function () {
     $tournament = Tournament::create([

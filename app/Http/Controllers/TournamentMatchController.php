@@ -17,7 +17,7 @@ class TournamentMatchController extends Controller
     public function index(Request $request, Tournament $tournament): View
     {
         $matches = $tournament->matches()
-            ->with(['homeTeam', 'awayTeam', 'tournament'])
+            ->with(['homeTeam.group', 'awayTeam', 'group', 'tournament'])
             ->orderBy('kickoff')
             ->orderBy('match_number')
             ->get();
@@ -35,6 +35,12 @@ class TournamentMatchController extends Controller
 
     public function store(Request $request, Tournament $tournament): RedirectResponse
     {
+        if ($tournament->matches()->whereNotNull('tournament_group_id')->exists()) {
+            return back()
+                ->withErrors(['schedule' => 'Het wedstrijdschema is al gegenereerd.'])
+                ->withInput();
+        }
+
         $validated = $request->validate([
             'home_team_id' => [
                 'required',
@@ -57,6 +63,19 @@ class TournamentMatchController extends Controller
             'kickoff.required' => 'Vul de datum en tijd van de wedstrijd in.',
             'kickoff.date_format' => 'Vul een geldige datum en tijd in.',
         ]);
+
+        $teams = $tournament->teams()
+            ->whereIn('id', [$validated['home_team_id'], $validated['away_team_id']])
+            ->get(['id', 'tournament_group_id'])
+            ->keyBy('id');
+        $homeTeam = $teams->get((int) $validated['home_team_id']);
+        $awayTeam = $teams->get((int) $validated['away_team_id']);
+
+        if ((int) ($homeTeam->tournament_group_id ?? 0) !== (int) ($awayTeam->tournament_group_id ?? 0)) {
+            return back()
+                ->withErrors(['away_team_id' => 'Kies twee teams uit dezelfde poule.'])
+                ->withInput();
+        }
 
         $kickoff = TournamentTime::fromLocalInput($validated['kickoff']);
 

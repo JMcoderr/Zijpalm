@@ -13,6 +13,7 @@ class TournamentMatch extends Model
 
     protected $fillable = [
         'tournament_id',
+        'tournament_group_id',
         'home_team_id',
         'away_team_id',
         'stage',
@@ -37,6 +38,11 @@ class TournamentMatch extends Model
     public function tournament(): BelongsTo
     {
         return $this->belongsTo(Tournament::class);
+    }
+
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(TournamentGroup::class, 'tournament_group_id');
     }
 
     public function homeTeam(): BelongsTo

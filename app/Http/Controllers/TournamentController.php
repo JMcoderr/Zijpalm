@@ -31,9 +31,18 @@ class TournamentController extends Controller
 
     public function edit(Tournament $tournament): View
     {
-        $tournament->load(['teams.group', 'groups.teams', 'matches.homeTeam', 'matches.awayTeam']);
+        $tournament->load([
+            'teams.group',
+            'groups.teams',
+            'matches.group',
+            'matches.homeTeam.group',
+            'matches.awayTeam',
+        ]);
+        $hasGeneratedSchedule = $tournament->matches->contains(
+            fn ($match) => $match->tournament_group_id !== null,
+        );
 
-        return view('admin.tournaments-edit', compact('tournament'));
+        return view('admin.tournaments-edit', compact('tournament', 'hasGeneratedSchedule'));
     }
 
     public function update(Request $request, Tournament $tournament): RedirectResponse
@@ -45,6 +54,24 @@ class TournamentController extends Controller
             return back()
                 ->withErrors(['team_count' => 'Het aantal teams kan niet lager zijn dan het aantal toegevoegde teams.'])
                 ->withInput();
+        }
+
+        if ($tournament->matches()->whereNotNull('tournament_group_id')->exists()) {
+            $currentStart = $tournament->starts_at?->format('Y-m-d H:i:s');
+            $newStart = ($validated['starts_at'] ?? null)?->format('Y-m-d H:i:s');
+            $errors = [];
+
+            if ($validated['team_count'] !== $tournament->team_count) {
+                $errors['team_count'] = 'Het aantal teams kan niet worden gewijzigd nadat het schema is gegenereerd.';
+            }
+
+            if ($newStart !== $currentStart) {
+                $errors['starts_at'] = 'De startdatum kan niet worden gewijzigd nadat het schema is gegenereerd.';
+            }
+
+            if ($errors !== []) {
+                return back()->withErrors($errors)->withInput();
+            }
         }
 
         $tournament->update($validated);

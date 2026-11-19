@@ -32,6 +32,12 @@ class TournamentTeamController extends Controller
             'team_group_id.exists' => 'Kies een poule van dit toernooi.',
         ]);
 
+        if ($tournament->matches()->whereNotNull('tournament_group_id')->exists()) {
+            return back()
+                ->withErrors(['team_name' => 'Teams kunnen niet worden toegevoegd nadat het wedstrijdschema is gegenereerd.'])
+                ->withInput();
+        }
+
         // Keep the number of registered teams within the tournament's configured total.
         if ($tournament->teams()->count() >= $tournament->team_count) {
             return back()
@@ -83,6 +89,18 @@ class TournamentTeamController extends Controller
         ];
 
         if (array_key_exists($groupField, $validated)) {
+            $newGroupId = $validated[$groupField] === null ? null : (int) $validated[$groupField];
+            $currentGroupId = $team->tournament_group_id === null ? null : (int) $team->tournament_group_id;
+
+            if (
+                $newGroupId !== $currentGroupId
+                && ($team->homeMatches()->exists() || $team->awayMatches()->exists())
+            ) {
+                return back()
+                    ->withErrors([$groupField => 'De poule kan niet worden gewijzigd nadat er wedstrijden zijn ingepland.'])
+                    ->withInput();
+            }
+
             $teamData['tournament_group_id'] = $validated[$groupField];
         }
 
