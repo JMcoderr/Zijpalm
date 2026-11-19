@@ -39,6 +39,8 @@ Route::middleware('auth')->put('voetbalpoule/{tournament}/wedstrijden/{match}/vo
     ->name('football-pool.matches.predictions.store');
 Route::middleware('auth')->post('voetbalpoule/{tournament}/aanmelden', [TournamentParticipantController::class, 'store'])
     ->name('football-pool.join');
+Route::middleware('auth')->put('voetbalpoule/{tournament}/naam', [TournamentParticipantController::class, 'updateDisplayName'])
+    ->name('football-pool.display-name.update');
 
 // Middleware routes
 Route::middleware('auth')->group(

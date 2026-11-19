@@ -19,7 +19,7 @@
             </div>
         </div>
 
-        <p class="mb-4 text-sm text-zinc-700">Accountnamen en e-mailadressen worden niet getoond.</p>
+        <p class="mb-4 text-sm text-zinc-700">De namen op de ranglijst zijn zelf gekozen. Echte accountnamen en e-mailadressen worden niet getoond.</p>
 
         @if ($leaderboard->isEmpty())
             <p class="text-sm text-zinc-700">Er zijn nog geen deelnemers aangemeld voor dit toernooi.</p>

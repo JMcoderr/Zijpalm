@@ -29,6 +29,7 @@ it('shows a private points ranking with the current member highlighted', functio
             'firstName' => 'Private',
             'lastName' => 'First',
         ])->id,
+        'display_name' => 'Predictor Eight',
     ]);
     $currentUser = User::factory()->create([
         'firstName' => 'Private',
@@ -40,6 +41,7 @@ it('shows a private points ranking with the current member highlighted', functio
             'firstName' => 'Private',
             'lastName' => 'Third',
         ])->id,
+        'display_name' => 'Captain Picks',
     ]);
     $zeroPointParticipant = $tournament->participants()->create([
         'user_id' => User::factory()->create([
@@ -85,8 +87,8 @@ it('shows a private points ranking with the current member highlighted', functio
         ->assertSee('Ranglijst')
         ->assertSee($tournament->name)
         ->assertSeeInOrder([
-            'aria-label="1. Deelnemer 1, 8 punten"',
-            'aria-label="1. Deelnemer 3, 8 punten"',
+            'aria-label="1. Predictor Eight, 8 punten"',
+            'aria-label="1. Captain Picks, 8 punten"',
             'aria-label="3. Jij, 4 punten"',
             'aria-label="4. Deelnemer 4, 0 punten"',
         ], false);
@@ -107,11 +109,15 @@ it('does not show names or email addresses on the public leaderboard', function 
         'lastName' => 'Member',
         'email' => 'hidden-member@example.com',
     ]);
-    $tournament->participants()->create(['user_id' => $participant->id]);
+    $tournament->participants()->create([
+        'user_id' => $participant->id,
+        'display_name' => 'PouleGuest42',
+    ]);
 
     $this->get(route('football-pool.leaderboard', $tournament))
         ->assertOk()
-        ->assertSee('Deelnemer 1')
+        ->assertSee('PouleGuest42')
+        ->assertSee('Echte accountnamen en e-mailadressen worden niet getoond.')
         ->assertDontSee('Hidden Member')
         ->assertDontSee('hidden-member@example.com');
 });
@@ -159,6 +165,7 @@ it('allows administrators to download the leaderboard as a private csv', functio
             'lastName' => 'Winner',
             'email' => 'private-winner@example.com',
         ])->id,
+        'display_name' => 'Top Predictor',
     ]);
     $otherParticipant = $tournament->participants()->create([
         'user_id' => User::factory()->create([
@@ -166,6 +173,7 @@ it('allows administrators to download the leaderboard as a private csv', functio
             'lastName' => 'Other',
             'email' => 'private-other@example.com',
         ])->id,
+        'display_name' => 'Second Predictor',
     ]);
     $topParticipant->predictions()->create([
         'match_id' => $match->id,
@@ -200,8 +208,8 @@ it('allows administrators to download the leaderboard as a private csv', functio
     expect(str_starts_with($content, "\xEF\xBB\xBF"))->toBeTrue()
         ->and($rows)->toBe([
             ['Rang', 'Deelnemer', 'Punten'],
-            ['1', 'Deelnemer 1', '5'],
-            ['2', 'Deelnemer 2', '0'],
+            ['1', 'Top Predictor', '5'],
+            ['2', 'Second Predictor', '0'],
         ])
         ->and(str_contains($content, 'Private Winner'))->toBeFalse()
         ->and(str_contains($content, 'private-winner@example.com'))->toBeFalse()

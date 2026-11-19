@@ -1,0 +1,26 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('tournament_participants', function (Blueprint $table) {
+            $table->string('display_name', 100)->nullable();
+
+            // A public name is unique within one tournament, not across all tournaments.
+            $table->unique(['tournament_id', 'display_name']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('tournament_participants', function (Blueprint $table) {
+            $table->dropUnique(['tournament_id', 'display_name']);
+            $table->dropColumn('display_name');
+        });
+    }
+};

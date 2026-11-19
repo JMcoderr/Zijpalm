@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Tournament;
-use Illuminate\Support\Collection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -55,17 +55,23 @@ class TournamentLeaderboardController extends Controller
     private function buildLeaderboard(Tournament $tournament, ?int $currentUserId = null): Collection
     {
         $participants = $tournament->participants()
-            ->select(['id', 'user_id'])
+            ->select(['id', 'user_id', 'display_name'])
             ->withSum('predictions as total_points', 'points')
             ->get();
 
-        // Use stable tournament-local labels instead of exposing account details.
+        // Use only a chosen public name; older registrations keep an anonymous label.
         $participantLabels = $participants
             ->sortBy('id')
             ->values()
-            ->mapWithKeys(fn ($participant, $index) => [
-                $participant->id => 'Deelnemer '.($index + 1),
-            ]);
+            ->mapWithKeys(function ($participant, $index) {
+                $displayName = trim((string) $participant->display_name);
+
+                return [
+                    $participant->id => $displayName !== ''
+                        ? $displayName
+                        : 'Deelnemer '.($index + 1),
+                ];
+            });
 
         $participants = $participants
             ->sort(function ($left, $right) {
