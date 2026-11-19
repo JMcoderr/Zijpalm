@@ -238,9 +238,11 @@ it('allows admins to add knockout fixtures after the group schedule is generated
     $this->from(route('admin.tournaments.edit', $tournament))
         ->post($route, [
             ...$firstFixture,
+            'knockout_home_team_id' => $homeTeam->id,
+            'knockout_away_team_id' => $otherAwayTeam->id,
             'knockout_kickoff' => now()->addDays(4)->format('Y-m-d\TH:i'),
         ])
-        ->assertSessionHasErrors('knockout_home_team_id');
+        ->assertSessionHasErrors('knockout_round_number');
 
     $this->from(route('admin.tournaments.edit', $tournament))
         ->post($route, [

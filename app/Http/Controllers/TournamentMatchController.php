@@ -176,9 +176,26 @@ class TournamentMatchController extends Controller
                 ->lockForUpdate()
                 ->findOrFail($tournament->id);
 
+            // Keep the generated group schedule unchanged; knockout fixtures start after that schedule exists.
             if (! $lockedTournament->matches()->whereNotNull('tournament_group_id')->exists()) {
                 throw ValidationException::withMessages([
                     'knockout_schedule' => 'Genereer eerst het groepsschema voordat je knock-outwedstrijden toevoegt.',
+                ]);
+            }
+
+            // A team can only play once in a knockout round.
+            $teamAlreadyScheduled = $lockedTournament->matches()
+                ->where('stage', 'knockout')
+                ->where('round_number', $roundNumber)
+                ->where(function ($query) use ($homeTeamId, $awayTeamId) {
+                    $query->whereIn('home_team_id', [$homeTeamId, $awayTeamId])
+                        ->orWhereIn('away_team_id', [$homeTeamId, $awayTeamId]);
+                })
+                ->exists();
+
+            if ($teamAlreadyScheduled) {
+                throw ValidationException::withMessages([
+                    'knockout_round_number' => 'Een team kan maar één keer in dezelfde knock-outronde spelen.',
                 ]);
             }
 
@@ -191,18 +208,6 @@ class TournamentMatchController extends Controller
                         ->where('away_team_id', $homeTeamId);
                 });
             };
-
-            $duplicateRoundMatch = $lockedTournament->matches()
-                ->where('stage', 'knockout')
-                ->where('round_number', $roundNumber)
-                ->where($sameTeams)
-                ->exists();
-
-            if ($duplicateRoundMatch) {
-                throw ValidationException::withMessages([
-                    'knockout_home_team_id' => 'Deze teams spelen al tegen elkaar in deze knock-outronde.',
-                ]);
-            }
 
             $duplicateKickoff = $lockedTournament->matches()
                 ->where('kickoff', $kickoff->format('Y-m-d H:i:s'))
