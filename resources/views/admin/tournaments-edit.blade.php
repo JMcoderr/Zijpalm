@@ -331,6 +331,33 @@
                     <p role="status" class="text-sm font-semibold text-zinc-700">Voeg eerst minimaal twee teams toe om een wedstrijd te maken.</p>
                 @endif
             </section>
+
+            <section aria-labelledby="tournament-participants-heading" class="border-t border-zinc-300/80 pt-6">
+                <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <h2 id="tournament-participants-heading" class="text-lg font-bold text-zinc-900">Deelnemers</h2>
+                    <p class="text-sm font-semibold text-zinc-700">
+                        {{ $tournament->participants->count() }} {{ $tournament->participants->count() === 1 ? 'deelnemer' : 'deelnemers' }}
+                    </p>
+                </div>
+
+                <p class="mb-4 text-sm text-zinc-700">Echte accountnamen en e-mailadressen worden hier niet getoond.</p>
+
+                @if ($tournament->participants->isEmpty())
+                    <p class="text-sm text-zinc-700">Er zijn nog geen deelnemers aangemeld voor dit toernooi.</p>
+                @else
+                    <ul class="space-y-2">
+                        @foreach ($tournament->participants as $index => $participant)
+                            @php($participantName = trim((string) $participant->display_name))
+                            <li class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-300 bg-white p-3 text-sm text-zinc-900">
+                                <span class="font-semibold">{{ $participantName !== '' ? $participantName : 'Deelnemer '.($index + 1) }}</span>
+                                <time datetime="{{ $participant->created_at->toIso8601String() }}" class="text-zinc-600">
+                                    Aangemeld op {{ \App\Support\TournamentTime::formatLocal($participant->created_at, 'd-m-Y H:i') }}
+                                </time>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </section>
         </x-admin.layout>
     </x-zijpalm-div>
 </x-page-wrapper>

@@ -105,6 +105,43 @@ it('allows admins to edit a tournament', function () {
     ]);
 });
 
+it('shows public participant names without account details on the admin page', function () {
+    $tournament = Tournament::create([
+        'name' => 'Participant overview cup',
+        'team_count' => 16,
+    ]);
+    $namedParticipant = User::factory()->create([
+        'firstName' => 'Private',
+        'lastName' => 'Member',
+        'email' => 'private-member@example.com',
+    ]);
+    $legacyParticipant = User::factory()->create([
+        'firstName' => 'Another',
+        'lastName' => 'Private',
+        'email' => 'another-private@example.com',
+    ]);
+    $tournament->participants()->create([
+        'user_id' => $namedParticipant->id,
+        'display_name' => 'Poule Fan',
+    ]);
+    $tournament->participants()->create([
+        'user_id' => $legacyParticipant->id,
+    ]);
+
+    $this->actingAs(User::factory()->admin()->create())
+        ->get(route('admin.tournaments.edit', $tournament))
+        ->assertOk()
+        ->assertSee('Deelnemers')
+        ->assertSee('2 deelnemers')
+        ->assertSee('Poule Fan')
+        ->assertSee('Deelnemer 2')
+        ->assertSee('Aangemeld op')
+        ->assertDontSee('Private Member')
+        ->assertDontSee('private-member@example.com')
+        ->assertDontSee('Another Private')
+        ->assertDontSee('another-private@example.com');
+});
+
 it('keeps existing tournament data when an invalid edit is submitted', function () {
     $tournament = Tournament::create([
         'name' => 'Keep this tournament',

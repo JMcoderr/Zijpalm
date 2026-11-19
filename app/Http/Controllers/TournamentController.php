@@ -32,6 +32,10 @@ class TournamentController extends Controller
     public function edit(Tournament $tournament): View
     {
         $tournament->load([
+            // Only load public participant details for this overview.
+            'participants' => fn ($query) => $query
+                ->select(['id', 'tournament_id', 'display_name', 'created_at'])
+                ->orderBy('id'),
             'teams.group',
             'groups.teams',
             'matches.group',
