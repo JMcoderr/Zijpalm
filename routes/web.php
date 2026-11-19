@@ -32,6 +32,8 @@ Route::get('voetbalpoule/{tournament}/wedstrijden', [TournamentMatchController::
     ->name('football-pool.matches');
 Route::get('voetbalpoule/{tournament}/ranglijst', [TournamentLeaderboardController::class, 'index'])
     ->name('football-pool.leaderboard');
+Route::middleware('admin')->get('voetbalpoule/{tournament}/ranglijst/export', [TournamentLeaderboardController::class, 'export'])
+    ->name('football-pool.leaderboard.export');
 Route::middleware('auth')->put('voetbalpoule/{tournament}/wedstrijden/{match}/voorspelling', [TournamentPredictionController::class, 'store'])
     ->scopeBindings()
     ->name('football-pool.matches.predictions.store');

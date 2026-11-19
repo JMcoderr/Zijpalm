@@ -135,3 +135,102 @@ it('shows an empty state and links to the ranking from the tournament pages', fu
         ->assertOk()
         ->assertSee($leaderboardUrl, false);
 });
+
+// The admin export keeps the same anonymized ranking shown on the public page.
+it('allows administrators to download the leaderboard as a private csv', function () {
+    $tournament = Tournament::create([
+        'name' => 'Export Cup',
+        'team_count' => 2,
+    ]);
+    $homeTeam = $tournament->teams()->create(['name' => 'Export Home']);
+    $awayTeam = $tournament->teams()->create(['name' => 'Export Away']);
+    $match = TournamentMatch::create([
+        'tournament_id' => $tournament->id,
+        'home_team_id' => $homeTeam->id,
+        'away_team_id' => $awayTeam->id,
+        'stage' => 'group',
+        'round_number' => 1,
+        'match_number' => 1,
+        'kickoff' => now()->addDay(),
+    ]);
+    $topParticipant = $tournament->participants()->create([
+        'user_id' => User::factory()->create([
+            'firstName' => 'Private',
+            'lastName' => 'Winner',
+            'email' => 'private-winner@example.com',
+        ])->id,
+    ]);
+    $otherParticipant = $tournament->participants()->create([
+        'user_id' => User::factory()->create([
+            'firstName' => 'Private',
+            'lastName' => 'Other',
+            'email' => 'private-other@example.com',
+        ])->id,
+    ]);
+    $topParticipant->predictions()->create([
+        'match_id' => $match->id,
+        'home_score' => 2,
+        'away_score' => 1,
+        'points' => 5,
+    ]);
+    $otherParticipant->predictions()->create([
+        'match_id' => $match->id,
+        'home_score' => 0,
+        'away_score' => 1,
+        'points' => 0,
+    ]);
+    $admin = User::factory()->admin()->create();
+
+    $this->actingAs($admin)
+        ->get(route('football-pool.leaderboard', $tournament))
+        ->assertOk()
+        ->assertSee(route('football-pool.leaderboard.export', $tournament), false);
+
+    $response = $this->actingAs($admin)
+        ->get(route('football-pool.leaderboard.export', $tournament))
+        ->assertOk()
+        ->assertDownload('ranglijst_toernooi_'.$tournament->id.'.csv');
+
+    $content = $response->streamedContent();
+    $rows = array_map(
+        fn (string $line) => str_getcsv($line, ';', '"', '\\'),
+        preg_split('/\r\n|\n|\r/', trim(substr($content, 3))),
+    );
+
+    expect(str_starts_with($content, "\xEF\xBB\xBF"))->toBeTrue()
+        ->and($rows)->toBe([
+            ['Rang', 'Deelnemer', 'Punten'],
+            ['1', 'Deelnemer 1', '5'],
+            ['2', 'Deelnemer 2', '0'],
+        ])
+        ->and(str_contains($content, 'Private Winner'))->toBeFalse()
+        ->and(str_contains($content, 'private-winner@example.com'))->toBeFalse()
+        ->and(str_contains($content, 'Private Other'))->toBeFalse()
+        ->and(str_contains($content, 'private-other@example.com'))->toBeFalse();
+});
+
+it('exports a header when no participants have joined', function () {
+    $tournament = Tournament::create([
+        'name' => 'Empty Export Cup',
+        'team_count' => 2,
+    ]);
+
+    $response = $this->actingAs(User::factory()->admin()->create())
+        ->get(route('football-pool.leaderboard.export', $tournament))
+        ->assertOk()
+        ->assertDownload('ranglijst_toernooi_'.$tournament->id.'.csv');
+
+    expect($response->streamedContent())->toContain('Rang;Deelnemer;Punten');
+});
+
+// Regular members can view rankings but only admins can download them.
+it('does not allow regular members to export the leaderboard', function () {
+    $tournament = Tournament::create([
+        'name' => 'Member Export Cup',
+        'team_count' => 2,
+    ]);
+
+    $this->actingAs(User::factory()->create())
+        ->get(route('football-pool.leaderboard.export', $tournament))
+        ->assertRedirect(route('home'));
+});

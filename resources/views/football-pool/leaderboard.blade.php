@@ -5,9 +5,18 @@
                 <h1 class="text-2xl font-bold text-zinc-900">Ranglijst</h1>
                 <p class="mt-1 text-sm text-zinc-700">{{ $tournament->name }}</p>
             </div>
-            <a href="{{ route('football-pool.matches', $tournament) }}" class="text-sm font-semibold text-zijpalm-800 underline underline-offset-2 hover:text-zijpalm-950">
-                Terug naar wedstrijden
-            </a>
+            <div class="flex flex-wrap items-center gap-3">
+                @auth
+                    @if (auth()->user()->isAdmin())
+                        <a href="{{ route('football-pool.leaderboard.export', $tournament) }}" class="text-sm font-semibold text-zijpalm-800 underline underline-offset-2 hover:text-zijpalm-950">
+                            Download ranglijst (CSV)
+                        </a>
+                    @endif
+                @endauth
+                <a href="{{ route('football-pool.matches', $tournament) }}" class="text-sm font-semibold text-zijpalm-800 underline underline-offset-2 hover:text-zijpalm-950">
+                    Terug naar wedstrijden
+                </a>
+            </div>
         </div>
 
         <p class="mb-4 text-sm text-zinc-700">Accountnamen en e-mailadressen worden niet getoond.</p>
