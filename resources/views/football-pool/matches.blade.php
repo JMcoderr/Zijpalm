@@ -44,6 +44,11 @@
                     </p>
                     <p class="font-semibold">{{ $match->awayTeam?->name ?? 'Nog te bepalen' }}</p>
                 </div>
+                @if ($match->result_finalized && $match->penalty_winner)
+                    <p class="mt-2 text-center text-sm text-zinc-700">
+                        Penaltywinnaar: {{ $match->penalty_winner === 'home' ? $match->homeTeam?->name : $match->awayTeam?->name }}
+                    </p>
+                @endif
 
                 @if ($participant)
                     @php($prediction = $predictions->get($match->id))
@@ -61,6 +66,9 @@
                                     · penaltywinnaar {{ $prediction->penalty_winner === 'home' ? $match->homeTeam?->name : $match->awayTeam?->name }}
                                 @endif
                             </p>
+                            @if ($match->result_finalized)
+                                <p class="mt-1 text-sm text-zinc-700">Punten verdiend: {{ $prediction->points }}</p>
+                            @endif
                         @else
                             <p class="mt-3 text-sm text-zinc-700">Je hebt geen voorspelling ingevoerd voor deze wedstrijd.</p>
                         @endif

@@ -86,6 +86,20 @@
                                 <form method="POST" action="{{ route('admin.tournaments.matches.result', ['tournament' => $tournament, 'match' => $match]) }}" class="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
                                     @csrf
                                     @method('PUT')
+                                    @if ($match->stage !== 'group')
+                                        @php($penaltyWinnerField = 'penalty_winner_'.$match->id)
+                                        <div class="sm:col-span-3">
+                                            <label for="{{ $penaltyWinnerField }}" class="mb-1 block font-semibold text-zinc-800">Penaltywinnaar bij een gelijke knock-outuitslag</label>
+                                            <select id="{{ $penaltyWinnerField }}" name="{{ $penaltyWinnerField }}" class="h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">
+                                                <option value="">Kies een penaltywinnaar bij een gelijke uitslag</option>
+                                                <option value="home" @selected(old($penaltyWinnerField, $match->penalty_winner) === 'home')>{{ $match->homeTeam?->name ?? 'Thuisteam' }}</option>
+                                                <option value="away" @selected(old($penaltyWinnerField, $match->penalty_winner) === 'away')>{{ $match->awayTeam?->name ?? 'Uitteam' }}</option>
+                                            </select>
+                                            @error($penaltyWinnerField)
+                                                <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p>
+                                            @enderror
+                                        </div>
+                                    @endif
                                     <div>
                                         <label for="{{ $homeScoreField }}" class="mb-1 block font-semibold text-zinc-800">Doelpunten thuis</label>
                                         <input id="{{ $homeScoreField }}" name="{{ $homeScoreField }}" type="number" min="0" max="255" step="1" value="{{ old($homeScoreField, $match->home_score) }}"

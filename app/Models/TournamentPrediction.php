@@ -13,11 +13,13 @@ class TournamentPrediction extends Model
         'home_score',
         'away_score',
         'penalty_winner',
+        'points',
     ];
 
     protected $casts = [
         'home_score' => 'integer',
         'away_score' => 'integer',
+        'points' => 'integer',
     ];
 
     public function participant(): BelongsTo

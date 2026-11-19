@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Tournament;
 use App\Models\TournamentMatch;
+use App\Services\TournamentScoringService;
 use App\Support\TournamentTime;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -111,14 +112,21 @@ class TournamentMatchController extends Controller
             ->with('success', 'Wedstrijd toegevoegd.');
     }
 
-    public function update(Request $request, Tournament $tournament, TournamentMatch $match): RedirectResponse
+    public function update(
+        Request $request,
+        Tournament $tournament,
+        TournamentMatch $match,
+        TournamentScoringService $scoringService,
+    ): RedirectResponse
     {
         $homeScoreField = 'home_score_'.$match->id;
         $awayScoreField = 'away_score_'.$match->id;
-        $validated = $request->validate([
+        $penaltyWinnerField = $match->stage === 'group' ? null : 'penalty_winner_'.$match->id;
+        $rules = [
             $homeScoreField => ['present', 'nullable', 'integer', 'min:0', 'max:255', 'required_with:'.$awayScoreField],
             $awayScoreField => ['present', 'nullable', 'integer', 'min:0', 'max:255', 'required_with:'.$homeScoreField],
-        ], [
+        ];
+        $messages = [
             $homeScoreField.'.integer' => 'De thuisuitslag moet een heel getal zijn.',
             $homeScoreField.'.min' => 'Een uitslag kan niet lager zijn dan 0.',
             $homeScoreField.'.max' => 'Een uitslag mag niet hoger zijn dan 255.',
@@ -127,17 +135,38 @@ class TournamentMatchController extends Controller
             $awayScoreField.'.min' => 'Een uitslag kan niet lager zijn dan 0.',
             $awayScoreField.'.max' => 'Een uitslag mag niet hoger zijn dan 255.',
             $awayScoreField.'.required_with' => 'Vul beide uitslagen in of laat ze allebei leeg.',
-        ]);
+        ];
 
-        $homeScore = $validated[$homeScoreField] ?? null;
-        $awayScore = $validated[$awayScoreField] ?? null;
+        if ($penaltyWinnerField !== null) {
+            $rules[$penaltyWinnerField] = ['nullable', Rule::in(['home', 'away'])];
+            $messages[$penaltyWinnerField.'.in'] = 'Kies een geldige penaltywinnaar.';
+        }
 
-        // A result is final only after both scores have been entered.
-        $match->update([
-            'home_score' => $homeScore,
-            'away_score' => $awayScore,
-            'result_finalized' => $homeScore !== null && $awayScore !== null,
-        ]);
+        $validated = $request->validate($rules, $messages);
+
+        $homeScore = isset($validated[$homeScoreField]) ? (int) $validated[$homeScoreField] : null;
+        $awayScore = isset($validated[$awayScoreField]) ? (int) $validated[$awayScoreField] : null;
+        $penaltyWinner = $penaltyWinnerField === null
+            ? null
+            : ($validated[$penaltyWinnerField] ?? null);
+
+        if ($homeScore !== null && $homeScore === $awayScore && $penaltyWinnerField !== null && $penaltyWinner === null) {
+            return back()
+                ->withErrors([$penaltyWinnerField => 'Kies bij een gelijke knock-outuitslag de penaltywinnaar.'])
+                ->withInput();
+        }
+
+        DB::transaction(function () use ($match, $homeScore, $awayScore, $penaltyWinner, $scoringService) {
+            // Replacing points in the same transaction prevents stale totals after a result correction.
+            $match->update([
+                'home_score' => $homeScore,
+                'away_score' => $awayScore,
+                'penalty_winner' => $homeScore !== null && $homeScore === $awayScore ? $penaltyWinner : null,
+                'result_finalized' => $homeScore !== null && $awayScore !== null,
+            ]);
+
+            $scoringService->recalculateForMatch($match);
+        });
 
         return redirect()
             ->route('admin.tournaments.edit', $tournament)
