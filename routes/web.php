@@ -264,6 +264,8 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->controller(AdminC
             ->name('tournaments.schedule.generate');
         Route::post('toernooien/{tournament}/wedstrijden', [TournamentMatchController::class, 'store'])
             ->name('tournaments.matches.store');
+        Route::post('toernooien/{tournament}/knock-outwedstrijden', [TournamentMatchController::class, 'storeKnockout'])
+            ->name('tournaments.matches.knockout.store');
         Route::put('toernooien/{tournament}/wedstrijden/{match}/uitslag', [TournamentMatchController::class, 'update'])
             ->scopeBindings()
             ->name('tournaments.matches.result');

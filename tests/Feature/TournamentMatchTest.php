@@ -150,6 +150,153 @@ it('rejects manual fixtures between teams from different groups', function () {
     $this->assertDatabaseCount('matches', 0);
 });
 
+// Knockout fixtures can be added after group scheduling without reopening the group schedule.
+it('allows admins to add knockout fixtures after the group schedule is generated', function () {
+    $tournament = Tournament::create([
+        'name' => 'Knockout Fixture Cup',
+        'team_count' => 4,
+    ]);
+    $groupA = $tournament->groups()->create(['name' => 'A']);
+    $groupB = $tournament->groups()->create(['name' => 'B']);
+    $homeTeam = $tournament->teams()->create([
+        'name' => 'Knockout Home',
+        'tournament_group_id' => $groupA->id,
+    ]);
+    $groupOpponent = $tournament->teams()->create([
+        'name' => 'Group Opponent',
+        'tournament_group_id' => $groupA->id,
+    ]);
+    $awayTeam = $tournament->teams()->create([
+        'name' => 'Knockout Away',
+        'tournament_group_id' => $groupB->id,
+    ]);
+    $otherAwayTeam = $tournament->teams()->create([
+        'name' => 'Other Knockout Away',
+        'tournament_group_id' => $groupB->id,
+    ]);
+    $tournament->matches()->create([
+        'tournament_group_id' => $groupA->id,
+        'home_team_id' => $homeTeam->id,
+        'away_team_id' => $groupOpponent->id,
+        'stage' => 'group',
+        'round_number' => 1,
+        'match_number' => 1,
+        'kickoff' => now()->addDay(),
+    ]);
+    $admin = User::factory()->admin()->create();
+    $route = route('admin.tournaments.matches.knockout.store', $tournament);
+    $firstFixture = [
+        'knockout_home_team_id' => $homeTeam->id,
+        'knockout_away_team_id' => $awayTeam->id,
+        'knockout_round_number' => 1,
+        'knockout_kickoff' => now()->addDays(2)->format('Y-m-d\TH:i'),
+    ];
+
+    $this->actingAs($admin)
+        ->get(route('admin.tournaments.edit', $tournament))
+        ->assertOk()
+        ->assertSee('Knock-outwedstrijd toevoegen');
+
+    $this->actingAs($admin)
+        ->post($route, $firstFixture)
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHas('success', 'Knock-outwedstrijd toegevoegd.');
+
+    $this->assertDatabaseHas('matches', [
+        'tournament_id' => $tournament->id,
+        'home_team_id' => $homeTeam->id,
+        'away_team_id' => $awayTeam->id,
+        'stage' => 'knockout',
+        'round_number' => 1,
+        'match_number' => 1,
+        'tournament_group_id' => null,
+    ]);
+
+    $secondFixture = [
+        ...$firstFixture,
+        'knockout_home_team_id' => $groupOpponent->id,
+        'knockout_away_team_id' => $otherAwayTeam->id,
+        'knockout_kickoff' => now()->addDays(3)->format('Y-m-d\TH:i'),
+    ];
+    $this->post($route, $secondFixture)
+        ->assertRedirect(route('admin.tournaments.edit', $tournament));
+
+    $this->assertDatabaseHas('matches', [
+        'tournament_id' => $tournament->id,
+        'home_team_id' => $groupOpponent->id,
+        'away_team_id' => $otherAwayTeam->id,
+        'stage' => 'knockout',
+        'round_number' => 1,
+        'match_number' => 2,
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('admin.tournaments.edit', $tournament))
+        ->assertOk()
+        ->assertSee('Knock-out');
+
+    $this->from(route('admin.tournaments.edit', $tournament))
+        ->post($route, [
+            ...$firstFixture,
+            'knockout_kickoff' => now()->addDays(4)->format('Y-m-d\TH:i'),
+        ])
+        ->assertSessionHasErrors('knockout_home_team_id');
+
+    $this->from(route('admin.tournaments.edit', $tournament))
+        ->post($route, [
+            ...$firstFixture,
+            'knockout_round_number' => 2,
+        ])
+        ->assertSessionHasErrors('knockout_kickoff');
+
+    $this->assertDatabaseCount('matches', 3);
+
+    $participant = User::factory()->create();
+    $tournament->participants()->create(['user_id' => $participant->id]);
+    $knockoutMatch = $tournament->matches()->where('stage', 'knockout')->firstOrFail();
+
+    $this->actingAs($participant)
+        ->get(route('football-pool.matches', $tournament))
+        ->assertOk()
+        ->assertSee('Knock-out')
+        ->assertSee('name="predicted_penalty_winner_'.$knockoutMatch->id.'"', false);
+});
+
+// The knockout endpoint still requires an admin and a generated group schedule.
+it('requires a generated group schedule and admin access for knockout fixtures', function () {
+    $tournament = Tournament::create([
+        'name' => 'Protected Knockout Cup',
+        'team_count' => 2,
+    ]);
+    $homeTeam = $tournament->teams()->create(['name' => 'Protected Home']);
+    $awayTeam = $tournament->teams()->create(['name' => 'Protected Away']);
+    $route = route('admin.tournaments.matches.knockout.store', $tournament);
+    $fixture = [
+        'knockout_home_team_id' => $homeTeam->id,
+        'knockout_away_team_id' => $awayTeam->id,
+        'knockout_round_number' => 1,
+        'knockout_kickoff' => now()->addDays(2)->format('Y-m-d\TH:i'),
+    ];
+
+    $this->post($route, $fixture)->assertRedirect(route('home'));
+
+    $this->actingAs(User::factory()->create())
+        ->post($route, $fixture)
+        ->assertRedirect(route('home'));
+
+    $this->actingAs(User::factory()->admin()->create())
+        ->from(route('admin.tournaments.edit', $tournament))
+        ->post($route, $fixture)
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHasErrors('knockout_schedule');
+
+    $this->get(route('admin.tournaments.edit', $tournament))
+        ->assertOk()
+        ->assertSee('Genereer eerst het groepsschema');
+
+    $this->assertDatabaseCount('matches', 0);
+});
+
 // Existing fixtures must keep their participating teams so the schedule remains valid.
 it('keeps teams from being removed while they are assigned to a match', function () {
     $tournament = Tournament::create([

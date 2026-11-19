@@ -10,6 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class TournamentMatchController extends Controller
@@ -129,6 +130,110 @@ class TournamentMatchController extends Controller
         return redirect()
             ->route('admin.tournaments.edit', $tournament)
             ->with('success', 'Wedstrijd toegevoegd.');
+    }
+
+    public function storeKnockout(Request $request, Tournament $tournament): RedirectResponse
+    {
+        $homeTeamField = 'knockout_home_team_id';
+        $awayTeamField = 'knockout_away_team_id';
+        $roundField = 'knockout_round_number';
+        $kickoffField = 'knockout_kickoff';
+        $validated = $request->validate([
+            $homeTeamField => [
+                'required',
+                'integer',
+                Rule::exists('teams', 'id')->where('tournament_id', $tournament->id),
+            ],
+            $awayTeamField => [
+                'required',
+                'integer',
+                'different:'.$homeTeamField,
+                Rule::exists('teams', 'id')->where('tournament_id', $tournament->id),
+            ],
+            $roundField => ['required', 'integer', 'min:1', 'max:255'],
+            $kickoffField => ['required', 'date_format:Y-m-d\TH:i'],
+        ], [
+            $homeTeamField.'.required' => 'Kies een thuisteam.',
+            $homeTeamField.'.exists' => 'Het thuisteam hoort niet bij dit toernooi.',
+            $awayTeamField.'.required' => 'Kies een uitteam.',
+            $awayTeamField.'.different' => 'Kies twee verschillende teams.',
+            $awayTeamField.'.exists' => 'Het uitteam hoort niet bij dit toernooi.',
+            $roundField.'.required' => 'Vul de knock-outronde in.',
+            $roundField.'.integer' => 'De knock-outronde moet een heel getal zijn.',
+            $roundField.'.min' => 'De knock-outronde moet minimaal 1 zijn.',
+            $roundField.'.max' => 'De knock-outronde mag maximaal 255 zijn.',
+            $kickoffField.'.required' => 'Vul de datum en tijd van de wedstrijd in.',
+            $kickoffField.'.date_format' => 'Vul een geldige datum en tijd in.',
+        ]);
+
+        $homeTeamId = (int) $validated[$homeTeamField];
+        $awayTeamId = (int) $validated[$awayTeamField];
+        $roundNumber = (int) $validated[$roundField];
+        $kickoff = TournamentTime::fromLocalInput($validated[$kickoffField]);
+
+        DB::transaction(function () use ($tournament, $homeTeamId, $awayTeamId, $roundNumber, $kickoff) {
+            $lockedTournament = Tournament::query()
+                ->lockForUpdate()
+                ->findOrFail($tournament->id);
+
+            if (! $lockedTournament->matches()->whereNotNull('tournament_group_id')->exists()) {
+                throw ValidationException::withMessages([
+                    'knockout_schedule' => 'Genereer eerst het groepsschema voordat je knock-outwedstrijden toevoegt.',
+                ]);
+            }
+
+            $sameTeams = function ($query) use ($homeTeamId, $awayTeamId) {
+                $query->where(function ($query) use ($homeTeamId, $awayTeamId) {
+                    $query->where('home_team_id', $homeTeamId)
+                        ->where('away_team_id', $awayTeamId);
+                })->orWhere(function ($query) use ($homeTeamId, $awayTeamId) {
+                    $query->where('home_team_id', $awayTeamId)
+                        ->where('away_team_id', $homeTeamId);
+                });
+            };
+
+            $duplicateRoundMatch = $lockedTournament->matches()
+                ->where('stage', 'knockout')
+                ->where('round_number', $roundNumber)
+                ->where($sameTeams)
+                ->exists();
+
+            if ($duplicateRoundMatch) {
+                throw ValidationException::withMessages([
+                    'knockout_home_team_id' => 'Deze teams spelen al tegen elkaar in deze knock-outronde.',
+                ]);
+            }
+
+            $duplicateKickoff = $lockedTournament->matches()
+                ->where('kickoff', $kickoff->format('Y-m-d H:i:s'))
+                ->where($sameTeams)
+                ->exists();
+
+            if ($duplicateKickoff) {
+                throw ValidationException::withMessages([
+                    'knockout_kickoff' => 'Deze wedstrijd staat al op dit tijdstip ingepland.',
+                ]);
+            }
+
+            // Locking the tournament keeps match numbers unique when admins add fixtures at the same time.
+            $matchNumber = (int) $lockedTournament->matches()
+                ->where('stage', 'knockout')
+                ->where('round_number', $roundNumber)
+                ->max('match_number') + 1;
+
+            $lockedTournament->matches()->create([
+                'home_team_id' => $homeTeamId,
+                'away_team_id' => $awayTeamId,
+                'stage' => 'knockout',
+                'round_number' => $roundNumber,
+                'match_number' => $matchNumber,
+                'kickoff' => $kickoff,
+            ]);
+        });
+
+        return redirect()
+            ->route('admin.tournaments.edit', $tournament)
+            ->with('success', 'Knock-outwedstrijd toegevoegd.');
     }
 
     public function update(

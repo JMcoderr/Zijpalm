@@ -79,7 +79,7 @@ it('generates one fixture for every team pair in each group', function () {
     $this->get(route('admin.tournaments.edit', $tournament))
         ->assertOk()
         ->assertDontSee('Wedstrijdschema genereren')
-        ->assertSee('Wedstrijden kunnen niet meer handmatig worden toegevoegd.');
+        ->assertSee('Poulewedstrijden kunnen niet meer handmatig worden toegevoegd.');
 
     $team = $tournament->teams()->firstOrFail();
     $otherGroup = $tournament->groups()->where('id', '!=', $team->tournament_group_id)->firstOrFail();

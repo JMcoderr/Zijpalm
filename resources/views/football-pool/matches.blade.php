@@ -38,8 +38,10 @@
             @php($matchGroup = $match->group ?? $match->homeTeam?->group)
             <article class="mb-3 rounded-lg border border-zinc-300 bg-white p-4 text-zinc-900 shadow-sm last:mb-0">
                 <p class="mb-3 text-sm text-zinc-600">
-                    @if ($matchGroup)
+                    @if ($match->stage === 'group' && $matchGroup)
                         Poule {{ $matchGroup->name }} ·
+                    @elseif ($match->stage !== 'group')
+                        Knock-out ·
                     @endif
                     Ronde {{ $match->round_number }} · Wedstrijd {{ $match->match_number }} · {{ \App\Support\TournamentTime::formatLocal($match->kickoff, 'd-m-Y H:i') }}
                 </p>
