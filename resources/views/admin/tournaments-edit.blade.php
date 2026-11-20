@@ -348,11 +348,20 @@
                     <ul class="space-y-2">
                         @foreach ($tournament->participants as $index => $participant)
                             @php($participantName = trim((string) $participant->display_name))
-                            <li class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-300 bg-white p-3 text-sm text-zinc-900">
+                            <li class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-300 bg-white p-3 text-sm text-zinc-900">
                                 <span class="font-semibold">{{ $participantName !== '' ? $participantName : 'Deelnemer '.($index + 1) }}</span>
-                                <time datetime="{{ $participant->created_at->toIso8601String() }}" class="text-zinc-600">
-                                    Aangemeld op {{ \App\Support\TournamentTime::formatLocal($participant->created_at, 'd-m-Y H:i') }}
-                                </time>
+                                <div class="flex flex-wrap items-center gap-3">
+                                    <time datetime="{{ $participant->created_at->toIso8601String() }}" class="text-zinc-600">
+                                        Aangemeld op {{ \App\Support\TournamentTime::formatLocal($participant->created_at, 'd-m-Y H:i') }}
+                                    </time>
+                                    <form method="POST" action="{{ route('admin.tournaments.participants.destroy', ['tournament' => $tournament, 'participant' => $participant]) }}" onsubmit="return confirm('Weet je zeker dat je deze deelnemer en alle voorspellingen voor dit toernooi wilt verwijderen?')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="inline-flex h-9 items-center justify-center rounded-lg border border-red-300 px-3 text-sm font-semibold text-red-700 transition hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+                                            Deelnemer verwijderen
+                                        </button>
+                                    </form>
+                                </div>
                             </li>
                         @endforeach
                     </ul>

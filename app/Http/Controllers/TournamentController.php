@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Tournament;
+use App\Models\TournamentParticipant;
 use App\Support\TournamentTime;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -83,6 +84,18 @@ class TournamentController extends Controller
         return redirect()
             ->route('admin.tournaments.index')
             ->with('success', 'Toernooi bijgewerkt.');
+    }
+
+    public function destroyParticipant(
+        Tournament $tournament,
+        TournamentParticipant $participant,
+    ): RedirectResponse {
+        // The foreign key removes predictions for this tournament but keeps the account intact.
+        $participant->delete();
+
+        return redirect()
+            ->route('admin.tournaments.edit', $tournament)
+            ->with('success', 'Deelnemer en voorspellingen verwijderd.');
     }
 
     private function validatedTournamentData(Request $request): array

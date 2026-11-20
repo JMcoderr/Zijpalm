@@ -156,6 +156,91 @@ it('shows public participant names without account details on the admin page', f
         ->assertDontSee('another-private@example.com');
 });
 
+it('allows admins to remove a participant and only that tournaments predictions', function () {
+    $tournament = Tournament::create([
+        'name' => 'Remove participant cup',
+        'team_count' => 2,
+    ]);
+    $otherTournament = Tournament::create([
+        'name' => 'Keep participant cup',
+        'team_count' => 2,
+    ]);
+    $member = User::factory()->create();
+    $participant = $tournament->participants()->create([
+        'user_id' => $member->id,
+        'display_name' => 'Poule Fan',
+    ]);
+    $otherParticipant = $otherTournament->participants()->create([
+        'user_id' => $member->id,
+        'display_name' => 'Other Cup Fan',
+    ]);
+    $team = $tournament->teams()->create(['name' => 'Home Team']);
+    $opponent = $tournament->teams()->create(['name' => 'Away Team']);
+    $match = $tournament->matches()->create([
+        'home_team_id' => $team->id,
+        'away_team_id' => $opponent->id,
+        'stage' => 'group',
+        'round_number' => 1,
+        'match_number' => 1,
+        'kickoff' => now()->addDay(),
+    ]);
+    $participant->predictions()->create([
+        'match_id' => $match->id,
+        'home_score' => 2,
+        'away_score' => 1,
+    ]);
+    $admin = User::factory()->admin()->create();
+    $deleteRoute = route('admin.tournaments.participants.destroy', [
+        'tournament' => $tournament,
+        'participant' => $participant,
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('admin.tournaments.edit', $tournament))
+        ->assertOk()
+        ->assertSee('Deelnemer verwijderen')
+        ->assertSee('alle voorspellingen voor dit toernooi wilt verwijderen');
+
+    $this->delete($deleteRoute)
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHas('success', 'Deelnemer en voorspellingen verwijderd.');
+
+    $this->assertDatabaseMissing('tournament_participants', ['id' => $participant->id]);
+    $this->assertDatabaseMissing('tournament_predictions', [
+        'tournament_participant_id' => $participant->id,
+    ]);
+    $this->assertDatabaseHas('tournament_participants', ['id' => $otherParticipant->id]);
+    $this->assertDatabaseHas('users', ['id' => $member->id]);
+
+    $this->get(route('admin.tournaments.edit', $tournament))
+        ->assertOk()
+        ->assertSee('Er zijn nog geen deelnemers aangemeld voor dit toernooi.');
+});
+
+it('does not let admins remove a participant through another tournament', function () {
+    $tournament = Tournament::create([
+        'name' => 'Participant owner cup',
+        'team_count' => 2,
+    ]);
+    $otherTournament = Tournament::create([
+        'name' => 'Participant wrong cup',
+        'team_count' => 2,
+    ]);
+    $participant = $tournament->participants()->create([
+        'user_id' => User::factory()->create()->id,
+        'display_name' => 'Poule Fan',
+    ]);
+
+    $this->actingAs(User::factory()->admin()->create())
+        ->delete(route('admin.tournaments.participants.destroy', [
+            'tournament' => $otherTournament,
+            'participant' => $participant,
+        ]))
+        ->assertNotFound();
+
+    $this->assertDatabaseHas('tournament_participants', ['id' => $participant->id]);
+});
+
 it('keeps existing tournament data when an invalid edit is submitted', function () {
     $tournament = Tournament::create([
         'name' => 'Keep this tournament',
@@ -336,6 +421,10 @@ it('keeps tournament management away from members and guests', function () {
         'team_count' => 16,
     ]);
     $team = $tournament->teams()->create(['name' => 'Existing team']);
+    $participant = $tournament->participants()->create([
+        'user_id' => User::factory()->create()->id,
+        'display_name' => 'Existing participant',
+    ]);
 
     $this->get(route('admin.tournaments.index'))
         ->assertRedirect(route('home'));
@@ -351,6 +440,10 @@ it('keeps tournament management away from members and guests', function () {
         ->assertRedirect(route('home'));
     $this->delete(route('admin.tournaments.teams.destroy', ['tournament' => $tournament, 'team' => $team]))
         ->assertRedirect(route('home'));
+    $this->delete(route('admin.tournaments.participants.destroy', [
+        'tournament' => $tournament,
+        'participant' => $participant,
+    ]))->assertRedirect(route('home'));
 
     $member = User::factory()->create();
 
@@ -386,8 +479,15 @@ it('keeps tournament management away from members and guests', function () {
     $this->actingAs($member)
         ->delete(route('admin.tournaments.teams.destroy', ['tournament' => $tournament, 'team' => $team]))
         ->assertRedirect(route('home'));
+    $this->actingAs($member)
+        ->delete(route('admin.tournaments.participants.destroy', [
+            'tournament' => $tournament,
+            'participant' => $participant,
+        ]))
+        ->assertRedirect(route('home'));
 
     expect($tournament->fresh()->name)->toBe('Admin-only tournament');
     expect($team->fresh()->name)->toBe('Existing team');
+    $this->assertDatabaseHas('tournament_participants', ['id' => $participant->id]);
     $this->assertDatabaseCount('teams', 1);
 });

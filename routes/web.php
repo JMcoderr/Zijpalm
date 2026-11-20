@@ -282,6 +282,9 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->controller(AdminC
             ->name('tournaments.teams.destroy');
         Route::get('toernooien/{tournament}/bewerken', [TournamentController::class, 'edit'])->name('tournaments.edit');
         Route::put('toernooien/{tournament}', [TournamentController::class, 'update'])->name('tournaments.update');
+        Route::delete('toernooien/{tournament}/deelnemers/{participant}', [TournamentController::class, 'destroyParticipant'])
+            ->scopeBindings()
+            ->name('tournaments.participants.destroy');
         Route::middleware('auth')->prefix('bestanden')->name('documents.')->controller(\App\Http\Controllers\DocumentController::class)->group(function () {
             Route::get('/', 'index')->name('index');
             Route::post('/', 'store')->name('store');
