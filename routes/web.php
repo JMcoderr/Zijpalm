@@ -39,6 +39,9 @@ Route::middleware('auth')->get('voetbalpoule/{tournament}/mijn-voorspellingen', 
 Route::middleware('auth')->put('voetbalpoule/{tournament}/wedstrijden/{match}/voorspelling', [TournamentPredictionController::class, 'store'])
     ->scopeBindings()
     ->name('football-pool.matches.predictions.store');
+Route::middleware('auth')->delete('voetbalpoule/{tournament}/wedstrijden/{match}/voorspelling', [TournamentPredictionController::class, 'destroy'])
+    ->scopeBindings()
+    ->name('football-pool.matches.predictions.destroy');
 Route::middleware('auth')->post('voetbalpoule/{tournament}/aanmelden', [TournamentParticipantController::class, 'store'])
     ->name('football-pool.join');
 Route::middleware('auth')->put('voetbalpoule/{tournament}/naam', [TournamentParticipantController::class, 'updateDisplayName'])

@@ -71,6 +71,101 @@ it('allows an enrolled member to save and update a private prediction', function
         ->assertSee('value="3"', false);
 });
 
+it('allows an enrolled member to remove their own prediction before the deadline', function () {
+    $tournament = Tournament::create([
+        'name' => 'Remove Prediction Cup',
+        'team_count' => 4,
+    ]);
+    $homeTeam = $tournament->teams()->create(['name' => 'Remove Prediction Home']);
+    $awayTeam = $tournament->teams()->create(['name' => 'Remove Prediction Away']);
+    $match = $tournament->matches()->create([
+        'home_team_id' => $homeTeam->id,
+        'away_team_id' => $awayTeam->id,
+        'stage' => 'group',
+        'round_number' => 1,
+        'match_number' => 1,
+        'kickoff' => now()->addHour(),
+    ]);
+    $member = User::factory()->create();
+    $participant = $tournament->participants()->create(['user_id' => $member->id]);
+    $otherParticipant = $tournament->participants()->create([
+        'user_id' => User::factory()->create()->id,
+    ]);
+    $prediction = $participant->predictions()->create([
+        'match_id' => $match->id,
+        'home_score' => 2,
+        'away_score' => 1,
+    ]);
+    $otherPrediction = $otherParticipant->predictions()->create([
+        'match_id' => $match->id,
+        'home_score' => 0,
+        'away_score' => 3,
+    ]);
+    $predictionRoute = route('football-pool.matches.predictions.destroy', [
+        'tournament' => $tournament,
+        'match' => $match,
+    ]);
+
+    $this->actingAs($member)
+        ->get(route('football-pool.matches', $tournament))
+        ->assertOk()
+        ->assertSee('Voorspelling verwijderen')
+        ->assertSee($predictionRoute, false);
+
+    $this->delete($predictionRoute)
+        ->assertRedirect(route('football-pool.matches', $tournament))
+        ->assertSessionHas('success', 'Je voorspelling is verwijderd.');
+
+    $this->assertDatabaseMissing('tournament_predictions', ['id' => $prediction->id]);
+    $this->assertDatabaseHas('tournament_predictions', ['id' => $otherPrediction->id]);
+
+    $this->get(route('football-pool.matches', $tournament))
+        ->assertOk()
+        ->assertDontSee('Voorspelling verwijderen');
+});
+
+it('does not allow prediction removal after the deadline or without tournament registration', function () {
+    $kickoff = now()->addHour();
+    $tournament = Tournament::create([
+        'name' => 'Prediction Removal Deadline Cup',
+        'team_count' => 4,
+    ]);
+    $homeTeam = $tournament->teams()->create(['name' => 'Removal Deadline Home']);
+    $awayTeam = $tournament->teams()->create(['name' => 'Removal Deadline Away']);
+    $match = $tournament->matches()->create([
+        'home_team_id' => $homeTeam->id,
+        'away_team_id' => $awayTeam->id,
+        'stage' => 'group',
+        'round_number' => 1,
+        'match_number' => 1,
+        'kickoff' => $kickoff,
+    ]);
+    $member = User::factory()->create();
+    $participant = $tournament->participants()->create(['user_id' => $member->id]);
+    $prediction = $participant->predictions()->create([
+        'match_id' => $match->id,
+        'home_score' => 2,
+        'away_score' => 1,
+    ]);
+    $predictionRoute = route('football-pool.matches.predictions.destroy', [
+        'tournament' => $tournament,
+        'match' => $match,
+    ]);
+
+    $this->actingAs(User::factory()->create())
+        ->delete($predictionRoute)
+        ->assertRedirect(route('football-pool.matches', $tournament))
+        ->assertSessionHas('error', 'Meld je eerst aan voor dit toernooi voordat je een voorspelling invoert.');
+
+    $this->travelTo($kickoff);
+    $this->actingAs($member)
+        ->delete($predictionRoute)
+        ->assertRedirect(route('football-pool.matches', $tournament))
+        ->assertSessionHas('error', 'De deadline voor deze voorspelling is verstreken.');
+
+    $this->assertDatabaseHas('tournament_predictions', ['id' => $prediction->id]);
+});
+
 it('shows only the signed-in members predictions for the selected tournament', function () {
     $tournament = Tournament::create([
         'name' => 'My Predictions Cup',

@@ -133,6 +133,15 @@
                                 </button>
                             </div>
                         </form>
+                        @if ($prediction)
+                            <form method="POST" action="{{ route('football-pool.matches.predictions.destroy', ['tournament' => $tournament, 'match' => $match]) }}" onsubmit="return confirm('Weet je zeker dat je deze voorspelling wilt verwijderen?')" class="mt-2 text-right">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="inline-flex h-10 items-center justify-center rounded-lg border border-red-300 px-4 text-sm font-semibold text-red-800 transition hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+                                    Voorspelling verwijderen
+                                </button>
+                            </form>
+                        @endif
                     @endif
                 @endif
             </article>

@@ -6,6 +6,7 @@ use App\Models\Tournament;
 use App\Models\TournamentMatch;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -107,5 +108,50 @@ class TournamentPredictionController extends Controller
         return redirect()
             ->route('football-pool.matches', $tournament)
             ->with('success', 'Je voorspelling is opgeslagen.');
+    }
+
+    public function destroy(Request $request, Tournament $tournament, TournamentMatch $match): RedirectResponse
+    {
+        $participant = $request->user()
+            ->tournamentParticipations()
+            ->where('tournament_id', $tournament->id)
+            ->first();
+
+        if (! $participant) {
+            return redirect()
+                ->route('football-pool.matches', $tournament)
+                ->with('error', 'Meld je eerst aan voor dit toernooi voordat je een voorspelling invoert.');
+        }
+
+        $deleted = DB::transaction(function () use ($tournament, $match, $participant): ?int {
+            $lockedMatch = $tournament->matches()
+                ->whereKey($match->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if (! $lockedMatch->predictionDeadline()->isFuture() || $lockedMatch->result_finalized) {
+                return null;
+            }
+
+            return $participant->predictions()
+                ->where('match_id', $lockedMatch->id)
+                ->delete();
+        });
+
+        if ($deleted === null) {
+            return redirect()
+                ->route('football-pool.matches', $tournament)
+                ->with('error', 'De deadline voor deze voorspelling is verstreken.');
+        }
+
+        if ($deleted === 0) {
+            return redirect()
+                ->route('football-pool.matches', $tournament)
+                ->with('error', 'Je hebt geen voorspelling opgeslagen voor deze wedstrijd.');
+        }
+
+        return redirect()
+            ->route('football-pool.matches', $tournament)
+            ->with('success', 'Je voorspelling is verwijderd.');
     }
 }
