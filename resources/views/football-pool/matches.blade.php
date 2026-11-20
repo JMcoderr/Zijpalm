@@ -39,6 +39,12 @@
             </p>
         @endif
 
+        @if ($participant && $predictionProgress['total'] > 0)
+            <p role="status" class="mb-4 rounded-lg bg-zijpalm-50 p-3 text-sm font-semibold text-zijpalm-900">
+                Je hebt {{ $predictionProgress['filled'] }} van de {{ $predictionProgress['total'] }} mogelijke voorspellingen ingevuld.
+            </p>
+        @endif
+
         @forelse ($matches as $match)
             @php($matchGroup = $match->group ?? $match->homeTeam?->group)
             <article id="match-{{ $match->id }}" class="mb-3 rounded-lg border border-zinc-300 bg-white p-4 text-zinc-900 shadow-sm last:mb-0">

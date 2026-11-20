@@ -30,8 +30,21 @@ class TournamentMatchController extends Controller
         $predictions = $participant
             ? $participant->predictions->keyBy('match_id')
             : collect();
+        $predictionProgress = ['filled' => 0, 'total' => 0];
 
-        return view('football-pool.matches', compact('tournament', 'matches', 'participant', 'predictions'));
+        if ($participant) {
+            // Count only matches the participant can still predict.
+            $openMatches = $matches->filter(fn ($match) => $match->home_team_id !== null
+                && $match->away_team_id !== null
+                && ! $match->result_finalized
+                && $match->predictionDeadline()->isFuture());
+            $predictionProgress = [
+                'filled' => $openMatches->filter(fn ($match) => $predictions->has($match->id))->count(),
+                'total' => $openMatches->count(),
+            ];
+        }
+
+        return view('football-pool.matches', compact('tournament', 'matches', 'participant', 'predictions', 'predictionProgress'));
     }
 
     public function store(Request $request, Tournament $tournament): RedirectResponse

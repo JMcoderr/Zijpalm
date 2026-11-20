@@ -71,6 +71,79 @@ it('allows an enrolled member to save and update a private prediction', function
         ->assertSee('value="3"', false);
 });
 
+it('shows prediction progress only for matches that can still be predicted', function () {
+    $now = now();
+    $tournament = Tournament::create([
+        'name' => 'Prediction Progress Cup',
+        'team_count' => 4,
+    ]);
+    $homeTeam = $tournament->teams()->create(['name' => 'Progress Home']);
+    $awayTeam = $tournament->teams()->create(['name' => 'Progress Away']);
+    $openMatch = $tournament->matches()->create([
+        'home_team_id' => $homeTeam->id,
+        'away_team_id' => $awayTeam->id,
+        'stage' => 'group',
+        'round_number' => 1,
+        'match_number' => 1,
+        'kickoff' => $now->copy()->addHour(),
+    ]);
+    $tournament->matches()->create([
+        'home_team_id' => $homeTeam->id,
+        'away_team_id' => $awayTeam->id,
+        'stage' => 'group',
+        'round_number' => 1,
+        'match_number' => 2,
+        'kickoff' => $now->copy()->addHours(2),
+    ]);
+    $finishedMatch = $tournament->matches()->create([
+        'home_team_id' => $homeTeam->id,
+        'away_team_id' => $awayTeam->id,
+        'stage' => 'group',
+        'round_number' => 2,
+        'match_number' => 1,
+        'kickoff' => $now->copy()->addHours(3),
+        'home_score' => 2,
+        'away_score' => 1,
+        'result_finalized' => true,
+    ]);
+    $tournament->matches()->create([
+        'home_team_id' => $homeTeam->id,
+        'away_team_id' => $awayTeam->id,
+        'stage' => 'group',
+        'round_number' => 2,
+        'match_number' => 2,
+        'kickoff' => $now->copy()->subMinute(),
+    ]);
+    $tournament->matches()->create([
+        'stage' => 'knockout',
+        'round_number' => 1,
+        'match_number' => 1,
+        'kickoff' => $now->copy()->addHours(4),
+    ]);
+    $member = User::factory()->create();
+    $participant = $tournament->participants()->create(['user_id' => $member->id]);
+    $participant->predictions()->create([
+        'match_id' => $openMatch->id,
+        'home_score' => 1,
+        'away_score' => 0,
+    ]);
+    $participant->predictions()->create([
+        'match_id' => $finishedMatch->id,
+        'home_score' => 2,
+        'away_score' => 1,
+    ]);
+
+    $this->actingAs($member)
+        ->get(route('football-pool.matches', $tournament))
+        ->assertOk()
+        ->assertSee('Je hebt 1 van de 2 mogelijke voorspellingen ingevuld.');
+
+    $this->actingAs(User::factory()->create())
+        ->get(route('football-pool.matches', $tournament))
+        ->assertOk()
+        ->assertDontSee('mogelijke voorspellingen ingevuld');
+});
+
 it('allows an enrolled member to remove their own prediction before the deadline', function () {
     $tournament = Tournament::create([
         'name' => 'Remove Prediction Cup',
