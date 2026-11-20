@@ -7,6 +7,7 @@ use App\Models\Guest;
 use App\Models\Payment;
 use App\Models\User;
 use App\PaymentStatus;
+use App\UserType;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 
@@ -15,7 +16,8 @@ uses(RefreshDatabase::class);
 beforeEach(function () {
     Mail::fake();
     $this->admin = User::factory()->admin()->create();
-    $this->organizer = User::factory()->create();
+    // The organizer picker excludes system accounts, so use an eligible type.
+    $this->organizer = User::factory()->create(['type' => UserType::Medewerker->value]);
     $this->activity = Activity::factory()->create();
 });
 
