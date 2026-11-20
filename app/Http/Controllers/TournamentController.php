@@ -7,6 +7,7 @@ use App\Models\TournamentParticipant;
 use App\Support\TournamentTime;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class TournamentController extends Controller
@@ -84,6 +85,22 @@ class TournamentController extends Controller
         return redirect()
             ->route('admin.tournaments.index')
             ->with('success', 'Toernooi bijgewerkt.');
+    }
+
+    public function destroy(Tournament $tournament): RedirectResponse
+    {
+        DB::transaction(function () use ($tournament): void {
+            // Matches must be removed before teams because fixtures restrict team deletion.
+            $tournament->matches()->delete();
+            $tournament->participants()->delete();
+            $tournament->teams()->delete();
+            $tournament->groups()->delete();
+            $tournament->delete();
+        });
+
+        return redirect()
+            ->route('admin.tournaments.index')
+            ->with('success', 'Toernooi en alle bijbehorende gegevens verwijderd.');
     }
 
     public function destroyParticipant(

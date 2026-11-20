@@ -42,9 +42,18 @@
                                         <td class="px-4 py-3 text-zinc-700">{{ $tournament->starts_at ? \App\Support\TournamentTime::formatLocal($tournament->starts_at, 'd-m-Y H:i') : 'Nog niet ingesteld' }}</td>
                                         <td class="px-4 py-3 text-zinc-700">{{ $tournament->description ?: '-' }}</td>
                                         <td class="px-4 py-3">
-                                            <a href="{{ route('admin.tournaments.edit', $tournament) }}" class="font-semibold text-zijpalm-700 hover:underline">
-                                                Bewerken
-                                            </a>
+                                            <div class="flex flex-wrap items-center gap-3">
+                                                <a href="{{ route('admin.tournaments.edit', $tournament) }}" class="font-semibold text-zijpalm-700 hover:underline">
+                                                    Bewerken
+                                                </a>
+                                                <form method="POST" action="{{ route('admin.tournaments.destroy', $tournament) }}" onsubmit="return confirm('Weet je zeker dat je dit toernooi en alle teams, wedstrijden, deelnemers en voorspellingen wilt verwijderen?')">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="font-semibold text-red-700 hover:underline">
+                                                        Verwijderen
+                                                    </button>
+                                                </form>
+                                            </div>
                                         </td>
                                     </tr>
                                 @endforeach

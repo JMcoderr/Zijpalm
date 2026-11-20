@@ -281,6 +281,7 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->controller(AdminC
             ->scopeBindings()
             ->name('tournaments.teams.destroy');
         Route::get('toernooien/{tournament}/bewerken', [TournamentController::class, 'edit'])->name('tournaments.edit');
+        Route::delete('toernooien/{tournament}', [TournamentController::class, 'destroy'])->name('tournaments.destroy');
         Route::put('toernooien/{tournament}', [TournamentController::class, 'update'])->name('tournaments.update');
         Route::delete('toernooien/{tournament}/deelnemers/{participant}', [TournamentController::class, 'destroyParticipant'])
             ->scopeBindings()
