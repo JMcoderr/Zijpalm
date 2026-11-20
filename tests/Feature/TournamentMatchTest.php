@@ -96,6 +96,118 @@ it('rejects duplicate fixtures for the same kickoff', function () {
     $this->assertDatabaseCount('matches', 1);
 });
 
+it('allows admins to reschedule a match without changing its result or predictions', function () {
+    $tournament = Tournament::create([
+        'name' => 'Reschedule Cup',
+        'team_count' => 4,
+    ]);
+    $homeTeam = $tournament->teams()->create(['name' => 'Reschedule Home']);
+    $awayTeam = $tournament->teams()->create(['name' => 'Reschedule Away']);
+    $match = $tournament->matches()->create([
+        'home_team_id' => $homeTeam->id,
+        'away_team_id' => $awayTeam->id,
+        'stage' => 'group',
+        'round_number' => 1,
+        'match_number' => 1,
+        'kickoff' => '2026-06-11 16:00:00',
+        'home_score' => 2,
+        'away_score' => 1,
+        'result_finalized' => true,
+    ]);
+    $participant = $tournament->participants()->create([
+        'user_id' => User::factory()->create()->id,
+    ]);
+    $prediction = $participant->predictions()->create([
+        'match_id' => $match->id,
+        'home_score' => 2,
+        'away_score' => 1,
+        'points' => 4,
+    ]);
+    $kickoffField = 'kickoff_'.$match->id;
+    $route = route('admin.tournaments.matches.reschedule', [
+        'tournament' => $tournament,
+        'match' => $match,
+    ]);
+
+    $this->actingAs(User::factory()->admin()->create())
+        ->get(route('admin.tournaments.edit', $tournament))
+        ->assertOk()
+        ->assertSee('Speeltijd aanpassen')
+        ->assertSee('value="2026-06-11T18:00"', false);
+
+    $this->put($route, [
+        $kickoffField => '2026-06-12T20:30',
+    ])
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHas('success', 'Speeltijd bijgewerkt.');
+
+    $this->assertDatabaseHas('matches', [
+        'id' => $match->id,
+        'kickoff' => '2026-06-12 18:30:00',
+        'home_score' => 2,
+        'away_score' => 1,
+        'result_finalized' => true,
+    ]);
+    $this->assertDatabaseHas('tournament_predictions', [
+        'id' => $prediction->id,
+        'points' => 4,
+    ]);
+
+    $this->get(route('admin.tournaments.edit', $tournament))
+        ->assertOk()
+        ->assertSee('value="2026-06-12T20:30"', false);
+});
+
+it('rejects invalid or duplicate reschedule times without changing the match', function () {
+    $tournament = Tournament::create([
+        'name' => 'Duplicate Reschedule Cup',
+        'team_count' => 4,
+    ]);
+    $homeTeam = $tournament->teams()->create(['name' => 'Reschedule First']);
+    $awayTeam = $tournament->teams()->create(['name' => 'Reschedule Second']);
+    $firstMatch = $tournament->matches()->create([
+        'home_team_id' => $homeTeam->id,
+        'away_team_id' => $awayTeam->id,
+        'stage' => 'group',
+        'round_number' => 1,
+        'match_number' => 1,
+        'kickoff' => '2026-06-11 16:00:00',
+    ]);
+    $secondMatch = $tournament->matches()->create([
+        'home_team_id' => $awayTeam->id,
+        'away_team_id' => $homeTeam->id,
+        'stage' => 'knockout',
+        'round_number' => 1,
+        'match_number' => 1,
+        'kickoff' => '2026-06-12 16:00:00',
+    ]);
+    $route = route('admin.tournaments.matches.reschedule', [
+        'tournament' => $tournament,
+        'match' => $firstMatch,
+    ]);
+    $kickoffField = 'kickoff_'.$firstMatch->id;
+    $this->actingAs(User::factory()->admin()->create());
+
+    $this->from(route('admin.tournaments.edit', $tournament))
+        ->put($route, [$kickoffField => '2026-03-29T02:30'])
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHasErrors($kickoffField);
+
+    $this->from(route('admin.tournaments.edit', $tournament))
+        ->put($route, [$kickoffField => '2026-06-12T18:00'])
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHasErrors($kickoffField);
+
+    $this->assertDatabaseHas('matches', [
+        'id' => $firstMatch->id,
+        'kickoff' => '2026-06-11 16:00:00',
+    ]);
+    $this->assertDatabaseHas('matches', [
+        'id' => $secondMatch->id,
+        'kickoff' => '2026-06-12 16:00:00',
+    ]);
+});
+
 // Team membership and distinct-team validation prevent invalid fixtures from being stored.
 it('rejects a team from another tournament and a match against the same team', function () {
     $tournament = Tournament::create([

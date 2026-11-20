@@ -270,6 +270,9 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->controller(AdminC
             ->name('tournaments.matches.store');
         Route::post('toernooien/{tournament}/knock-outwedstrijden', [TournamentMatchController::class, 'storeKnockout'])
             ->name('tournaments.matches.knockout.store');
+        Route::put('toernooien/{tournament}/wedstrijden/{match}/speeltijd', [TournamentMatchController::class, 'reschedule'])
+            ->scopeBindings()
+            ->name('tournaments.matches.reschedule');
         Route::put('toernooien/{tournament}/wedstrijden/{match}/uitslag', [TournamentMatchController::class, 'update'])
             ->scopeBindings()
             ->name('tournaments.matches.result');

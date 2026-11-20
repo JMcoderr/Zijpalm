@@ -176,6 +176,22 @@
                                     <span class="text-zinc-600">· Knock-out</span>
                                 @endif
                                 <span class="text-zinc-600">· {{ \App\Support\TournamentTime::formatLocal($match->kickoff, 'd-m-Y H:i') }}</span>
+                                @php($kickoffField = 'kickoff_'.$match->id)
+                                <form method="POST" action="{{ route('admin.tournaments.matches.reschedule', ['tournament' => $tournament, 'match' => $match]) }}" class="mt-3 flex flex-wrap items-end gap-3">
+                                    @csrf
+                                    @method('PUT')
+                                    <div class="min-w-0 flex-1">
+                                        <label for="{{ $kickoffField }}" class="mb-1 block font-semibold text-zinc-800">Speeltijd aanpassen</label>
+                                        <input id="{{ $kickoffField }}" name="{{ $kickoffField }}" type="datetime-local" value="{{ old($kickoffField, \App\Support\TournamentTime::toLocalInput($match->kickoff)) }}" required
+                                               class="h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">
+                                        @error($kickoffField)
+                                            <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                    <button type="submit" class="inline-flex h-10 items-center justify-center rounded-lg border border-zijpalm-700 px-4 font-semibold text-zijpalm-800 transition hover:bg-zijpalm-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zijpalm-700">
+                                        Tijd opslaan
+                                    </button>
+                                </form>
                                 @php($homeScoreField = 'home_score_'.$match->id)
                                 @php($awayScoreField = 'away_score_'.$match->id)
                                 <form method="POST" action="{{ route('admin.tournaments.matches.result', ['tournament' => $tournament, 'match' => $match]) }}" class="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">

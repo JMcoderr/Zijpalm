@@ -241,6 +241,60 @@ class TournamentMatchController extends Controller
             ->with('success', 'Knock-outwedstrijd toegevoegd.');
     }
 
+    public function reschedule(Request $request, Tournament $tournament, TournamentMatch $match): RedirectResponse
+    {
+        $kickoffField = 'kickoff_'.$match->id;
+        $validated = $request->validate([
+            $kickoffField => [
+                'bail',
+                'required',
+                'date_format:Y-m-d\TH:i',
+                TournamentTime::validateLocalInput(...),
+            ],
+        ], [
+            $kickoffField.'.required' => 'Vul de nieuwe datum en tijd in.',
+            $kickoffField.'.date_format' => 'Vul een geldige datum en tijd in.',
+        ]);
+        $kickoff = TournamentTime::fromLocalInput($validated[$kickoffField]);
+
+        DB::transaction(function () use ($tournament, $match, $kickoff, $kickoffField): void {
+            $lockedTournament = Tournament::query()
+                ->lockForUpdate()
+                ->findOrFail($tournament->id);
+            $lockedMatch = $lockedTournament->matches()
+                ->whereKey($match->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $duplicateExists = $lockedTournament->matches()
+                ->where('id', '!=', $lockedMatch->id)
+                ->where('kickoff', $kickoff->format('Y-m-d H:i:s'))
+                ->where(function ($query) use ($lockedMatch) {
+                    $query->where(function ($query) use ($lockedMatch) {
+                        $query->where('home_team_id', $lockedMatch->home_team_id)
+                            ->where('away_team_id', $lockedMatch->away_team_id);
+                    })->orWhere(function ($query) use ($lockedMatch) {
+                        $query->where('home_team_id', $lockedMatch->away_team_id)
+                            ->where('away_team_id', $lockedMatch->home_team_id);
+                    });
+                })
+                ->exists();
+
+            if ($duplicateExists) {
+                throw ValidationException::withMessages([
+                    $kickoffField => 'Deze wedstrijd staat al op dit tijdstip ingepland.',
+                ]);
+            }
+
+            // Changing kickoff must not change the result or saved predictions.
+            $lockedMatch->update(['kickoff' => $kickoff]);
+        });
+
+        return redirect()
+            ->route('admin.tournaments.edit', $tournament)
+            ->with('success', 'Speeltijd bijgewerkt.');
+    }
+
     public function update(
         Request $request,
         Tournament $tournament,
