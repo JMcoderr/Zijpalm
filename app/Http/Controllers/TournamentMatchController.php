@@ -54,7 +54,7 @@ class TournamentMatchController extends Controller
                 'different:home_team_id',
                 Rule::exists('teams', 'id')->where('tournament_id', $tournament->id),
             ],
-            'kickoff' => ['required', 'date_format:Y-m-d\TH:i'],
+            'kickoff' => ['bail', 'required', 'date_format:Y-m-d\TH:i', TournamentTime::validateLocalInput(...)],
         ], [
             'home_team_id.required' => 'Kies een thuisteam.',
             'home_team_id.exists' => 'Het thuisteam hoort niet bij dit toernooi.',
@@ -151,7 +151,7 @@ class TournamentMatchController extends Controller
                 Rule::exists('teams', 'id')->where('tournament_id', $tournament->id),
             ],
             $roundField => ['required', 'integer', 'min:1', 'max:255'],
-            $kickoffField => ['required', 'date_format:Y-m-d\TH:i'],
+            $kickoffField => ['bail', 'required', 'date_format:Y-m-d\TH:i', TournamentTime::validateLocalInput(...)],
         ], [
             $homeTeamField.'.required' => 'Kies een thuisteam.',
             $homeTeamField.'.exists' => 'Het thuisteam hoort niet bij dit toernooi.',
@@ -246,8 +246,7 @@ class TournamentMatchController extends Controller
         Tournament $tournament,
         TournamentMatch $match,
         TournamentScoringService $scoringService,
-    ): RedirectResponse
-    {
+    ): RedirectResponse {
         $homeScoreField = 'home_score_'.$match->id;
         $awayScoreField = 'away_score_'.$match->id;
         $penaltyWinnerField = $match->stage === 'group' ? null : 'penalty_winner_'.$match->id;

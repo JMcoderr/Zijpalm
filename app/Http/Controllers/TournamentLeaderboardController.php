@@ -31,16 +31,16 @@ class TournamentLeaderboardController extends Controller
             try {
                 // Excel needs the BOM to read UTF-8 correctly, and the semicolon delimiter fits Dutch settings.
                 if (fwrite($stream, "\xEF\xBB\xBF") === false
-                    || fputcsv($stream, ['Rang', 'Deelnemer', 'Punten'], ';', '"', '\\') === false) {
+                    || fputcsv($stream, ['Rang', 'Deelnemer', 'Punten'], ';', '"', '') === false) {
                     throw new \RuntimeException('Unable to write the leaderboard export.');
                 }
 
                 foreach ($leaderboard as $entry) {
                     if (fputcsv($stream, [
                         $entry['rank'],
-                        $entry['label'],
+                        $this->csvLabel($entry['label']),
                         $entry['points'],
-                    ], ';', '"', '\\') === false) {
+                    ], ';', '"', '') === false) {
                         throw new \RuntimeException('Unable to write the leaderboard export.');
                     }
                 }
@@ -50,6 +50,14 @@ class TournamentLeaderboardController extends Controller
         }, 'ranglijst_toernooi_'.$tournament->id.'.csv', [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
+    }
+
+    private function csvLabel(string $label): string
+    {
+        // Keep player names as text when the exported file is opened in a spreadsheet.
+        return preg_match('/^[\p{Z}\p{C}]*[=+\-@＝＋－＠]/u', $label) === 1
+            ? "'".$label
+            : $label;
     }
 
     private function buildLeaderboard(Tournament $tournament, ?int $currentUserId = null): Collection

@@ -70,6 +70,20 @@ it('rejects a tournament with fewer than two teams', function () {
     $this->assertDatabaseCount('tournaments', 0);
 });
 
+it('does not silently move a tournament start during the spring clock change', function () {
+    $this->actingAs(User::factory()->admin()->create())
+        ->from(route('admin.tournaments.index'))
+        ->post(route('admin.tournaments.store'), [
+            'name' => 'Spring Cup',
+            'team_count' => 4,
+            'starts_at' => '2026-03-29T02:30',
+        ])
+        ->assertRedirect(route('admin.tournaments.index'))
+        ->assertSessionHasErrors('starts_at');
+
+    $this->assertDatabaseCount('tournaments', 0);
+});
+
 it('allows admins to edit a tournament', function () {
     $tournament = Tournament::create([
         'name' => 'Old tournament name',

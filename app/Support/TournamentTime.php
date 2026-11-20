@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use Closure;
 use DateTimeInterface;
 use Illuminate\Support\Carbon;
 use InvalidArgumentException;
@@ -10,6 +11,14 @@ class TournamentTime
 {
     // Form values use Amsterdam time while timestamps are stored in UTC.
     public const TIMEZONE = 'Europe/Amsterdam';
+
+    public static function validateLocalInput(string $attribute, string $value, Closure $fail): void
+    {
+        // PHP moves a time in the skipped spring hour forward instead of rejecting it.
+        if (self::fromLocalInput($value)->setTimezone(self::TIMEZONE)->format('Y-m-d\TH:i') !== $value) {
+            $fail('Dit tijdstip bestaat niet door de overgang naar zomertijd. Kies een ander tijdstip.');
+        }
+    }
 
     public static function fromLocalInput(string $value): Carbon
     {

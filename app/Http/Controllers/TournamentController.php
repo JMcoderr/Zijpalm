@@ -91,7 +91,7 @@ class TournamentController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'team_count' => ['required', 'integer', 'min:2', 'max:65535'],
             'description' => ['nullable', 'string'],
-            'starts_at' => ['nullable', 'date_format:Y-m-d\TH:i'],
+            'starts_at' => ['bail', 'nullable', 'date_format:Y-m-d\TH:i', TournamentTime::validateLocalInput(...)],
         ], [
             'name.required' => 'Vul een naam in.',
             'name.max' => 'De naam mag maximaal 255 tekens bevatten.',

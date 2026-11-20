@@ -23,6 +23,17 @@ it('allows admins to add matches using teams from the same tournament', function
         ->assertSee('Home Team')
         ->assertSee('Away Team');
 
+    $this->from(route('admin.tournaments.edit', $tournament))
+        ->post(route('admin.tournaments.matches.store', $tournament), [
+            'home_team_id' => $homeTeam->id,
+            'away_team_id' => $awayTeam->id,
+            'kickoff' => '2026-03-29T02:30',
+        ])
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHasErrors('kickoff');
+
+    $this->assertDatabaseCount('matches', 0);
+
     $this->post(route('admin.tournaments.matches.store', $tournament), [
         'home_team_id' => $homeTeam->id,
         'away_team_id' => $awayTeam->id,
@@ -197,8 +208,15 @@ it('allows admins to add knockout fixtures after the group schedule is generated
         ->assertOk()
         ->assertSee('Knock-outwedstrijd toevoegen');
 
-    $this->actingAs($admin)
-        ->post($route, $firstFixture)
+    $this->from(route('admin.tournaments.edit', $tournament))
+        ->post($route, [
+            ...$firstFixture,
+            'knockout_kickoff' => '2026-03-29T02:30',
+        ])
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHasErrors('knockout_kickoff');
+
+    $this->post($route, $firstFixture)
         ->assertRedirect(route('admin.tournaments.edit', $tournament))
         ->assertSessionHas('success', 'Knock-outwedstrijd toegevoegd.');
 

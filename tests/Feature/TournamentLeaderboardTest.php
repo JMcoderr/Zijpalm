@@ -142,7 +142,7 @@ it('shows an empty state and links to the ranking from the tournament pages', fu
         ->assertSee($leaderboardUrl, false);
 });
 
-// The admin export keeps the same anonymized ranking shown on the public page.
+// The export keeps the same ranking, with screen names written as spreadsheet text.
 it('allows administrators to download the leaderboard as a private csv', function () {
     $tournament = Tournament::create([
         'name' => 'Export Cup',
@@ -165,7 +165,7 @@ it('allows administrators to download the leaderboard as a private csv', functio
             'lastName' => 'Winner',
             'email' => 'private-winner@example.com',
         ])->id,
-        'display_name' => 'Top Predictor',
+        'display_name' => 'Top; "Predictor\\"',
     ]);
     $otherParticipant = $tournament->participants()->create([
         'user_id' => User::factory()->create([
@@ -173,7 +173,7 @@ it('allows administrators to download the leaderboard as a private csv', functio
             'lastName' => 'Other',
             'email' => 'private-other@example.com',
         ])->id,
-        'display_name' => 'Second Predictor',
+        'display_name' => '+Second Predictor',
     ]);
     $topParticipant->predictions()->create([
         'match_id' => $match->id,
@@ -192,6 +192,7 @@ it('allows administrators to download the leaderboard as a private csv', functio
     $this->actingAs($admin)
         ->get(route('football-pool.leaderboard', $tournament))
         ->assertOk()
+        ->assertSee('+Second Predictor')
         ->assertSee(route('football-pool.leaderboard.export', $tournament), false);
 
     $response = $this->actingAs($admin)
@@ -201,15 +202,15 @@ it('allows administrators to download the leaderboard as a private csv', functio
 
     $content = $response->streamedContent();
     $rows = array_map(
-        fn (string $line) => str_getcsv($line, ';', '"', '\\'),
+        fn (string $line) => str_getcsv($line, ';', '"', ''),
         preg_split('/\r\n|\n|\r/', trim(substr($content, 3))),
     );
 
     expect(str_starts_with($content, "\xEF\xBB\xBF"))->toBeTrue()
         ->and($rows)->toBe([
             ['Rang', 'Deelnemer', 'Punten'],
-            ['1', 'Top Predictor', '5'],
-            ['2', 'Second Predictor', '0'],
+            ['1', 'Top; "Predictor\\"', '5'],
+            ['2', "'+Second Predictor", '0'],
         ])
         ->and(str_contains($content, 'Private Winner'))->toBeFalse()
         ->and(str_contains($content, 'private-winner@example.com'))->toBeFalse()
