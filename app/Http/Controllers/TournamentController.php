@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Tournament;
 use App\Models\TournamentParticipant;
 use App\Support\TournamentTime;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +16,12 @@ class TournamentController extends Controller
     public function index(): View
     {
         $tournaments = Tournament::query()
-            ->withCount(['teams', 'matches', 'participants'])
+            ->withCount([
+                'teams',
+                'matches',
+                'matches as missing_results_count' => fn (Builder $query) => $query->missingResult(),
+                'participants',
+            ])
             ->orderBy('starts_at')
             ->orderBy('name')
             ->get();

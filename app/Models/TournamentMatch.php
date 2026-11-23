@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -27,6 +28,7 @@ class TournamentMatch extends Model
         'penalty_winner',
         'result_finalized',
         'result_locked',
+        'result_reminder_sent_at',
     ];
 
     protected $casts = [
@@ -39,7 +41,21 @@ class TournamentMatch extends Model
         'away_score' => 'integer',
         'result_finalized' => 'boolean',
         'result_locked' => 'boolean',
+        'result_reminder_sent_at' => 'datetime',
     ];
+
+    public function scopeMissingResult(Builder $query): Builder
+    {
+        return $query
+            ->where('kickoff', '<=', now('UTC'))
+            ->whereNotNull('home_team_id')
+            ->whereNotNull('away_team_id')
+            ->where(function (Builder $query) {
+                $query->where('result_finalized', false)
+                    ->orWhereNull('home_score')
+                    ->orWhereNull('away_score');
+            });
+    }
 
     public function tournament(): BelongsTo
     {

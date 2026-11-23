@@ -58,6 +58,10 @@ Artisan::command('app:test-activity-confirmation-mail {activity : The activity i
 
 // Schedule commands
 Schedule::command('app:send-activity-application-mail')->dailyAt('06:00');
+Schedule::command('app:send-tournament-result-reminders')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping()
+    ->onOneServer();
 
 // Upcoming activities digest is triggered manually from an admin-only button.
 

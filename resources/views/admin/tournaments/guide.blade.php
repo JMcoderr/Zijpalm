@@ -21,7 +21,7 @@
                 </li>
                 <li class="rounded-xl border border-zinc-200 border-l-2 border-l-zijpalm-400 bg-white p-4">
                     <h2 class="text-base font-bold text-zijpalm-900">4. Sla de uitslag op</h2>
-                    <p class="mt-1">Open de wedstrijd en vul de doelpunten per team in. Gebruik <strong>Uitslag opslaan</strong> zolang je nog iets wilt controleren. Klopt alles? Klik dan op <strong>Uitslag definitief maken</strong>. Daarna kan de uitslag niet meer worden aangepast. Bij een gelijke knock-outwedstrijd kies je ook de winnaar van de strafschoppen.</p>
+                    <p class="mt-1">Open de wedstrijd en vul de doelpunten per team in. Gebruik <strong>Uitslag opslaan</strong> zolang je nog iets wilt controleren. Klopt alles? Klik dan op <strong>Uitslag definitief maken</strong>. Daarna kan de uitslag niet meer worden aangepast. Bij een gelijke knock-outwedstrijd kies je ook de winnaar van de strafschoppen. Op het toernooienoverzicht zie je hoeveel wedstrijden na de aftrap nog geen uitslag hebben; het bestuur krijgt daarvoor automatisch een herinneringsmail.</p>
                 </li>
                 <li class="rounded-xl border border-zinc-200 border-l-2 border-l-zijpalm-400 bg-white p-4">
                     <h2 class="text-base font-bold text-zijpalm-900">5. Maak het knock-outschema</h2>

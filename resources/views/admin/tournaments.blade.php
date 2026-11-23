@@ -16,6 +16,16 @@
                 </div>
             </details>
 
+            <section aria-labelledby="missing-results-heading" class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 border-l-4 border-l-amber-500 bg-amber-50 p-4">
+                <div>
+                    <h2 id="missing-results-heading" class="font-bold text-amber-950">Ontbrekende uitslagen</h2>
+                    <p class="mt-1 text-sm text-amber-900">Wedstrijden waarvan de aftrap voorbij is en de uitslag nog niet is ingevoerd.</p>
+                </div>
+                <span id="missing-result-count" class="inline-flex min-w-12 items-center justify-center rounded-lg bg-white px-3 py-2 text-lg font-bold text-amber-950 tabular-nums">
+                    {{ $tournaments->sum('missing_results_count') }}
+                </span>
+            </section>
+
             <section aria-labelledby="tournaments-heading">
                 <h2 id="tournaments-heading" class="mb-3 border-l-4 border-zijpalm-600 pl-3 text-lg font-bold text-zijpalm-900">Bestaande toernooien</h2>
                 @if ($tournaments->isEmpty())
@@ -39,6 +49,9 @@
                                         </span>
                                         <span class="rounded-md bg-zinc-100 px-2.5 py-1">
                                             {{ $tournament->participants_count }} {{ $tournament->participants_count === 1 ? 'deelnemer' : 'deelnemers' }}
+                                        </span>
+                                        <span class="rounded-md bg-amber-50 px-2.5 py-1 text-amber-950">
+                                            Ontbrekende uitslagen: {{ $tournament->missing_results_count }}
                                         </span>
                                     </p>
                                 </div>
