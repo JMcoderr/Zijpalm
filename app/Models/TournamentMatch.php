@@ -16,6 +16,8 @@ class TournamentMatch extends Model
         'tournament_group_id',
         'home_team_id',
         'away_team_id',
+        'home_source_match_id',
+        'away_source_match_id',
         'stage',
         'round_number',
         'match_number',
@@ -30,6 +32,8 @@ class TournamentMatch extends Model
     protected $casts = [
         'round_number' => 'integer',
         'match_number' => 'integer',
+        'home_source_match_id' => 'integer',
+        'away_source_match_id' => 'integer',
         'kickoff' => 'datetime',
         'home_score' => 'integer',
         'away_score' => 'integer',

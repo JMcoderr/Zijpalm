@@ -289,7 +289,14 @@
                                     </button>
                                     </form>
                                 </details>
-                                @if (! $match->result_locked)
+                                @if (! $match->result_locked && ($match->home_team_id === null || $match->away_team_id === null))
+                                    <p role="status" class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+                                        Wacht tot beide teams bekend zijn voordat je de uitslag invult.
+                                        @error($homeScoreField)
+                                            <span role="alert" class="mt-1 block">{{ $message }}</span>
+                                        @enderror
+                                    </p>
+                                @elseif (! $match->result_locked)
                                 <form method="POST" action="{{ route('admin.tournaments.matches.result', ['tournament' => $tournament, 'match' => $match]) }}" class="grid gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3 sm:grid-cols-2 sm:items-end">
                                     @csrf
                                     @method('PUT')
@@ -356,7 +363,24 @@
 
                 @if ($hasGeneratedSchedule)
                     <p role="status" class="mb-4 rounded-lg border border-zijpalm-200 bg-zijpalm-50 p-3 text-sm font-semibold text-zijpalm-900">Het groepsschema is gegenereerd. Poulewedstrijden kunnen niet meer handmatig worden toegevoegd.</p>
-                    @if ($tournament->teams->count() >= 2)
+                    @if ($hasAutomaticKnockoutSchedule)
+                        <p role="status" class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-950">Het automatische knock-outschema staat klaar. Winnaars gaan na een definitieve uitslag automatisch door naar de volgende ronde.</p>
+                    @elseif ($hasKnockoutMatches)
+                        <p role="status" class="mb-4 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700">Er zijn knock-outwedstrijden handmatig toegevoegd. Het automatische schema kan daarom niet meer worden gemaakt.</p>
+                    @elseif ($canGenerateKnockoutSchedule)
+                        <div class="mb-4 rounded-lg border border-zijpalm-200 bg-zijpalm-50 p-3">
+                            <p class="mb-3 text-sm text-zinc-700">De beste twee teams uit elke poule gaan door. De volgorde wordt bepaald door punten, doelsaldo, doelpunten voor en daarna teamnaam.</p>
+                            <form method="POST" action="{{ route('admin.tournaments.knockout.generate', $tournament) }}">
+                                @csrf
+                                <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-zijpalm-700 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-zijpalm-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zijpalm-700">
+                                    Knock-outschema automatisch genereren
+                                </button>
+                            </form>
+                        </div>
+                    @else
+                        <p role="status" class="mb-4 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700">Maak eerst alle poule-uitslagen definitief. Daarna kun je het knock-outschema automatisch laten maken. Je kunt wedstrijden ook handmatig toevoegen.</p>
+                    @endif
+                    @if (! $hasAutomaticKnockoutSchedule && $tournament->teams->count() >= 2)
                         <details name="tournament-match-actions" class="mt-3 overflow-hidden rounded-lg border border-zijpalm-200 bg-white" @if ($errors->hasAny(['knockout_home_team_id', 'knockout_away_team_id', 'knockout_round_number', 'knockout_kickoff'])) open @endif>
                             <summary class="flex min-h-11 cursor-pointer items-center bg-zijpalm-50 px-3 text-sm font-semibold text-zijpalm-900 hover:bg-zijpalm-100">Knock-outwedstrijd toevoegen</summary>
                             <div class="border-t border-zinc-200 p-3">

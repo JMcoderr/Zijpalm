@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Tournament;
 use App\Models\TournamentMatch;
+use App\Services\TournamentBracketProgressionService;
 use App\Services\TournamentScoringService;
 use App\Support\TournamentTime;
 use Illuminate\Http\RedirectResponse;
@@ -200,6 +201,20 @@ class TournamentMatchController extends Controller
                 ]);
             }
 
+            $hasAutomaticKnockoutSchedule = $lockedTournament->matches()
+                ->where('stage', 'knockout')
+                ->where(function ($query) {
+                    $query->whereNotNull('home_source_match_id')
+                        ->orWhereNotNull('away_source_match_id');
+                })
+                ->exists();
+
+            if ($hasAutomaticKnockoutSchedule) {
+                throw ValidationException::withMessages([
+                    'knockout_schedule' => 'Het automatische knock-outschema is al gemaakt. Voeg geen wedstrijden meer handmatig toe.',
+                ]);
+            }
+
             // A team can only play once in a knockout round.
             $teamAlreadyScheduled = $lockedTournament->matches()
                 ->where('stage', 'knockout')
@@ -317,6 +332,7 @@ class TournamentMatchController extends Controller
         Tournament $tournament,
         TournamentMatch $match,
         TournamentScoringService $scoringService,
+        TournamentBracketProgressionService $progressionService,
     ): RedirectResponse {
         $homeScoreField = 'home_score_'.$match->id;
         $awayScoreField = 'away_score_'.$match->id;
@@ -365,11 +381,17 @@ class TournamentMatchController extends Controller
                 ->withInput();
         }
 
-        DB::transaction(function () use ($tournament, $match, $homeScore, $awayScore, $penaltyWinner, $finalizeResult, $homeScoreField, $scoringService) {
+        DB::transaction(function () use ($tournament, $match, $homeScore, $awayScore, $penaltyWinner, $finalizeResult, $homeScoreField, $scoringService, $progressionService) {
             $lockedMatch = TournamentMatch::query()
                 ->where('tournament_id', $tournament->id)
                 ->lockForUpdate()
                 ->findOrFail($match->id);
+
+            if ($lockedMatch->home_team_id === null || $lockedMatch->away_team_id === null) {
+                throw ValidationException::withMessages([
+                    $homeScoreField => 'Wacht tot beide teams bekend zijn voordat je de uitslag invult.',
+                ]);
+            }
 
             if ($lockedMatch->result_locked) {
                 throw ValidationException::withMessages([
@@ -387,6 +409,10 @@ class TournamentMatchController extends Controller
             ]);
 
             $scoringService->recalculateForMatch($lockedMatch);
+
+            if ($finalizeResult && $lockedMatch->stage === 'knockout') {
+                $progressionService->advanceWinner($lockedMatch);
+            }
         });
 
         return redirect()

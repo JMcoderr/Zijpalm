@@ -48,8 +48,32 @@ class TournamentController extends Controller
         $hasGeneratedSchedule = $tournament->matches->contains(
             fn ($match) => $match->tournament_group_id !== null,
         );
+        $groupMatches = $tournament->matches->where('stage', 'group');
+        $hasKnockoutMatches = $tournament->matches->contains(
+            fn ($match) => $match->stage === 'knockout',
+        );
+        $hasAutomaticKnockoutSchedule = $tournament->matches->contains(
+            fn ($match) => $match->stage === 'knockout'
+                && ($match->home_source_match_id !== null || $match->away_source_match_id !== null),
+        );
+        $hasValidKnockoutGroups = in_array($tournament->team_count, [8, 16, 32, 64], true)
+            && in_array($tournament->groups->count(), [2, 4, 8, 16], true)
+            && $tournament->groups->every(fn ($group) => $group->teams->count() === 4);
+        $canGenerateKnockoutSchedule = $hasValidKnockoutGroups
+            && $groupMatches->isNotEmpty()
+            && $groupMatches->every(
+                fn ($match) => $match->result_locked
+                    && $match->home_score !== null
+                    && $match->away_score !== null,
+            );
 
-        return view('admin.tournaments-edit', compact('tournament', 'hasGeneratedSchedule'));
+        return view('admin.tournaments-edit', compact(
+            'tournament',
+            'hasGeneratedSchedule',
+            'hasKnockoutMatches',
+            'hasAutomaticKnockoutSchedule',
+            'canGenerateKnockoutSchedule',
+        ));
     }
 
     public function update(Request $request, Tournament $tournament): RedirectResponse

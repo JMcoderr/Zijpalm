@@ -21,6 +21,7 @@ use App\Http\Controllers\TournamentController;
 use App\Http\Controllers\TournamentGroupController;
 use App\Http\Controllers\TournamentLeaderboardController;
 use App\Http\Controllers\TournamentMatchController;
+use App\Http\Controllers\TournamentKnockoutController;
 use App\Http\Controllers\TournamentPredictionController;
 use App\Http\Controllers\TournamentScheduleController;
 use App\Http\Controllers\TournamentTeamController;
@@ -277,6 +278,8 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->controller(AdminC
             ->name('tournaments.matches.store');
         Route::post('toernooien/{tournament}/knock-outwedstrijden', [TournamentMatchController::class, 'storeKnockout'])
             ->name('tournaments.matches.knockout.store');
+        Route::post('toernooien/{tournament}/knock-outschema', [TournamentKnockoutController::class, 'generate'])
+            ->name('tournaments.knockout.generate');
         Route::put('toernooien/{tournament}/wedstrijden/{match}/speeltijd', [TournamentMatchController::class, 'reschedule'])
             ->scopeBindings()
             ->name('tournaments.matches.reschedule');

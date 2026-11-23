@@ -23,12 +23,17 @@
                     <h2 class="text-base font-bold text-zijpalm-900">4. Sla de uitslag op</h2>
                     <p class="mt-1">Open de wedstrijd en vul de doelpunten per team in. Gebruik <strong>Uitslag opslaan</strong> zolang je nog iets wilt controleren. Klopt alles? Klik dan op <strong>Uitslag definitief maken</strong>. Daarna kan de uitslag niet meer worden aangepast. Bij een gelijke knock-outwedstrijd kies je ook de winnaar van de strafschoppen.</p>
                 </li>
+                <li class="rounded-xl border border-zinc-200 border-l-2 border-l-zijpalm-400 bg-white p-4">
+                    <h2 class="text-base font-bold text-zijpalm-900">5. Maak het knock-outschema</h2>
+                    <p class="mt-1">Maak eerst alle uitslagen van de poulewedstrijden definitief. Klik daarna op <strong>Knock-outschema automatisch genereren</strong>. De beste twee teams uit elke poule gaan door. Bij een gelijke stand kijkt de app eerst naar het puntenaantal, daarna naar het doelsaldo, de doelpunten voor en als laatste de teamnaam. Winnaars gaan na een definitieve knock-outuitslag automatisch door naar de volgende ronde.</p>
+                </li>
             </ol>
 
             <details class="mt-4 max-w-3xl overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-950">
                 <summary class="min-h-11 cursor-pointer px-4 py-3 font-bold text-emerald-900">Wedstrijdschema en speeltijden</summary>
                 <div class="border-t border-emerald-200 px-4 py-3">
                 <p class="pb-3"><strong>Automatisch schema:</strong> gebruik bij 8, 16, 32 of 64 teams de knop <strong>Poule-indeling automatisch maken</strong>. Bij andere aantallen kun je de poules zelf maken. Vul daarna een startdatum in bij <strong>Toernooi-instellingen</strong> en klik op <strong>Wedstrijdschema genereren</strong>.</p>
+                <p class="pb-3"><strong>Knock-outschema:</strong> na de definitieve groepsuitslagen kun je automatisch de vervolgrondes klaarzetten. De teams worden ingevuld zodra de vorige ronde definitief is afgerond. Pas de speeltijden aan als dat nodig is.</p>
                 <p><strong>Speeltijd aanpassen:</strong> open de wedstrijd, wijzig de datum en tijd en klik op <strong>Tijd opslaan</strong>. Voorspellingen blijven staan.</p>
                 </div>
             </details>
