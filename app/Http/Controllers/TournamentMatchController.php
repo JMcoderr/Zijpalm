@@ -321,9 +321,11 @@ class TournamentMatchController extends Controller
         $homeScoreField = 'home_score_'.$match->id;
         $awayScoreField = 'away_score_'.$match->id;
         $penaltyWinnerField = $match->stage === 'group' ? null : 'penalty_winner_'.$match->id;
+        $finalizeField = 'finalize_result_'.$match->id;
         $rules = [
             $homeScoreField => ['present', 'nullable', 'integer', 'min:0', 'max:255', 'required_with:'.$awayScoreField],
             $awayScoreField => ['present', 'nullable', 'integer', 'min:0', 'max:255', 'required_with:'.$homeScoreField],
+            $finalizeField => ['sometimes', 'boolean'],
         ];
         $messages = [
             $homeScoreField.'.integer' => 'De thuisuitslag moet een heel getal zijn.',
@@ -355,16 +357,36 @@ class TournamentMatchController extends Controller
                 ->withInput();
         }
 
-        DB::transaction(function () use ($match, $homeScore, $awayScore, $penaltyWinner, $scoringService) {
+        $finalizeResult = (bool) ($validated[$finalizeField] ?? false);
+
+        if ($finalizeResult && ($homeScore === null || $awayScore === null)) {
+            return back()
+                ->withErrors([$finalizeField => 'Vul eerst beide scores in voordat je de uitslag definitief maakt.'])
+                ->withInput();
+        }
+
+        DB::transaction(function () use ($tournament, $match, $homeScore, $awayScore, $penaltyWinner, $finalizeResult, $homeScoreField, $scoringService) {
+            $lockedMatch = TournamentMatch::query()
+                ->where('tournament_id', $tournament->id)
+                ->lockForUpdate()
+                ->findOrFail($match->id);
+
+            if ($lockedMatch->result_locked) {
+                throw ValidationException::withMessages([
+                    $homeScoreField => 'Deze uitslag is definitief en kan niet meer worden aangepast.',
+                ]);
+            }
+
             // Replacing points in the same transaction prevents stale totals after a result correction.
-            $match->update([
+            $lockedMatch->update([
                 'home_score' => $homeScore,
                 'away_score' => $awayScore,
                 'penalty_winner' => $homeScore !== null && $homeScore === $awayScore ? $penaltyWinner : null,
                 'result_finalized' => $homeScore !== null && $awayScore !== null,
+                'result_locked' => $finalizeResult,
             ]);
 
-            $scoringService->recalculateForMatch($match);
+            $scoringService->recalculateForMatch($lockedMatch);
         });
 
         return redirect()

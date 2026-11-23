@@ -57,11 +57,6 @@ it('recalculates and displays points for saved predictions', function () {
     expect($predictions->map(fn ($prediction) => $prediction->fresh()->points)->all())
         ->toBe([4, 1, 0]);
 
-    $this->actingAs(User::query()->findOrFail($predictions[0]->participant->user_id))
-        ->get(route('football-pool.matches', $tournament))
-        ->assertOk()
-        ->assertSee('Punten verdiend: 4');
-
     $this->actingAs($admin)
         ->put($resultRoute, [
             $homeScoreField => 0,
@@ -72,18 +67,27 @@ it('recalculates and displays points for saved predictions', function () {
     $this->put($resultRoute, [
         $homeScoreField => 0,
         $awayScoreField => 1,
+        'finalize_result_'.$match->id => 1,
     ])->assertRedirect(route('admin.tournaments.edit', $tournament));
 
     expect($predictions->map(fn ($prediction) => $prediction->fresh()->points)->all())
         ->toBe([0, 0, 1]);
 
-    $this->put($resultRoute, [
-        $homeScoreField => '',
-        $awayScoreField => '',
-    ])->assertRedirect(route('admin.tournaments.edit', $tournament));
+    $this->from(route('admin.tournaments.edit', $tournament))
+        ->put($resultRoute, [
+            $homeScoreField => '',
+            $awayScoreField => '',
+        ])
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHasErrors($homeScoreField);
 
     expect($predictions->map(fn ($prediction) => $prediction->fresh()->points)->all())
-        ->toBe([0, 0, 0]);
+        ->toBe([0, 0, 1]);
+
+    $this->actingAs(User::query()->findOrFail($predictions[2]->participant->user_id))
+        ->get(route('football-pool.matches', $tournament))
+        ->assertOk()
+        ->assertSee('Punten verdiend: 1');
 });
 
 it('requires and saves an official penalty winner for tied knockout results', function () {
@@ -130,12 +134,14 @@ it('requires and saves an official penalty winner for tied knockout results', fu
     $this->put($resultRoute, [
         ...$scores,
         'penalty_winner_'.$match->id => 'home',
+        'finalize_result_'.$match->id => 1,
     ])->assertRedirect(route('admin.tournaments.edit', $tournament));
 
     $this->assertDatabaseHas('matches', [
         'id' => $match->id,
         'penalty_winner' => 'home',
         'result_finalized' => true,
+        'result_locked' => true,
     ]);
     $this->assertDatabaseHas('tournament_predictions', [
         'id' => $prediction->id,

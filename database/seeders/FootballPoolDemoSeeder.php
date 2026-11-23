@@ -47,6 +47,7 @@ class FootballPoolDemoSeeder extends Seeder
                 'home_score' => 2,
                 'away_score' => 1,
                 'result_finalized' => true,
+                'result_locked' => true,
             ]);
             $tournament->matches()->create([
                 'home_team_id' => $waterwijk->id,
@@ -57,6 +58,7 @@ class FootballPoolDemoSeeder extends Seeder
                 'home_score' => 1,
                 'away_score' => 0,
                 'result_finalized' => true,
+                'result_locked' => true,
             ]);
             // Knockout predictions close at kickoff, even after the group stage has started.
             $tournament->matches()->create([

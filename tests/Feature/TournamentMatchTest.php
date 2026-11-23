@@ -530,7 +530,8 @@ it('allows admins to update a match result', function () {
         ->get(route('admin.tournaments.edit', $tournament))
         ->assertOk()
         ->assertSee($homeScoreField, false)
-        ->assertSee($awayScoreField, false);
+        ->assertSee($awayScoreField, false)
+        ->assertSee('Uitslag definitief maken');
 
     $this->actingAs($admin)
         ->put(route('admin.tournaments.matches.result', ['tournament' => $tournament, 'match' => $match]), [
@@ -574,6 +575,81 @@ it('allows admins to update a match result', function () {
         'away_score' => null,
         'result_finalized' => false,
     ]);
+});
+
+it('allows admins to finalize a result and rejects later changes', function () {
+    $tournament = Tournament::create([
+        'name' => 'Final Result Cup',
+        'team_count' => 2,
+    ]);
+    $homeTeam = $tournament->teams()->create(['name' => 'Final Home']);
+    $awayTeam = $tournament->teams()->create(['name' => 'Final Away']);
+    $match = TournamentMatch::create([
+        'tournament_id' => $tournament->id,
+        'home_team_id' => $homeTeam->id,
+        'away_team_id' => $awayTeam->id,
+        'stage' => 'group',
+        'round_number' => 1,
+        'match_number' => 1,
+        'kickoff' => now()->addHour(),
+    ]);
+    $participant = $tournament->participants()->create([
+        'user_id' => User::factory()->create()->id,
+    ]);
+    $prediction = $participant->predictions()->create([
+        'match_id' => $match->id,
+        'home_score' => 2,
+        'away_score' => 1,
+    ]);
+    $admin = User::factory()->admin()->create();
+    $resultRoute = route('admin.tournaments.matches.result', ['tournament' => $tournament, 'match' => $match]);
+    $scores = [
+        'home_score_'.$match->id => 2,
+        'away_score_'.$match->id => 1,
+    ];
+
+    $this->actingAs($admin)
+        ->put($resultRoute, $scores)
+        ->assertRedirect(route('admin.tournaments.edit', $tournament));
+
+    $this->assertDatabaseHas('matches', [
+        'id' => $match->id,
+        'result_finalized' => true,
+        'result_locked' => false,
+    ]);
+    $this->assertDatabaseHas('tournament_predictions', ['id' => $prediction->id, 'points' => 4]);
+
+    $this->put($resultRoute, [...$scores, 'finalize_result_'.$match->id => 1])
+        ->assertRedirect(route('admin.tournaments.edit', $tournament));
+
+    $this->assertDatabaseHas('matches', [
+        'id' => $match->id,
+        'home_score' => 2,
+        'away_score' => 1,
+        'result_locked' => true,
+    ]);
+    $this->assertDatabaseHas('tournament_predictions', ['id' => $prediction->id, 'points' => 4]);
+
+    $this->from(route('admin.tournaments.edit', $tournament))
+        ->put($resultRoute, [
+            'home_score_'.$match->id => 3,
+            'away_score_'.$match->id => 0,
+        ])
+        ->assertRedirect(route('admin.tournaments.edit', $tournament))
+        ->assertSessionHasErrors('home_score_'.$match->id);
+
+    $this->get(route('admin.tournaments.edit', $tournament))
+        ->assertOk()
+        ->assertSee('Deze uitslag is definitief en kan niet meer worden aangepast.')
+        ->assertDontSee('name="home_score_'.$match->id.'"', false);
+
+    $this->assertDatabaseHas('matches', [
+        'id' => $match->id,
+        'home_score' => 2,
+        'away_score' => 1,
+        'result_locked' => true,
+    ]);
+    $this->assertDatabaseHas('tournament_predictions', ['id' => $prediction->id, 'points' => 4]);
 });
 
 // Both scores must be valid integers and are submitted together so partial results cannot be saved.

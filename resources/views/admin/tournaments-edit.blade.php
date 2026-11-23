@@ -223,8 +223,9 @@
                                     $homeScoreField = 'home_score_'.$match->id;
                                     $awayScoreField = 'away_score_'.$match->id;
                                     $penaltyWinnerField = 'penalty_winner_'.$match->id;
+                                    $finalizeField = 'finalize_result_'.$match->id;
                                     // Reopen only the fixture whose form needs correcting.
-                                    $matchHasErrors = $errors->hasAny([$kickoffField, $homeScoreField, $awayScoreField, $penaltyWinnerField]);
+                                    $matchHasErrors = $errors->hasAny([$kickoffField, $homeScoreField, $awayScoreField, $penaltyWinnerField, $finalizeField]);
                                 @endphp
                                 <details name="tournament-fixtures" id="admin-match-{{ $match->id }}" class="group/match overflow-hidden rounded-xl border border-zinc-200 border-l-2 border-l-zijpalm-300 bg-white text-sm text-zinc-900" @if ($matchHasErrors) open @endif>
                                     <summary class="flex min-h-12 cursor-pointer flex-wrap items-center justify-between gap-3 bg-zinc-50 px-3 py-3 hover:bg-zijpalm-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zijpalm-700">
@@ -240,11 +241,14 @@
                                             </span>
                                             <span @class([
                                                 'mt-2 inline-flex rounded-md px-2.5 py-1 text-xs font-semibold',
-                                                'bg-emerald-50 text-emerald-800' => $match->result_finalized,
+                                                'bg-emerald-50 text-emerald-800' => $match->result_locked,
+                                                'bg-amber-50 text-amber-900' => $match->result_finalized && ! $match->result_locked,
                                                 'bg-zinc-100 text-zinc-700' => ! $match->result_finalized,
                                             ])>
-                                                @if ($match->result_finalized)
-                                                    Uitslag opgeslagen: {{ $match->home_score }} - {{ $match->away_score }}
+                                                @if ($match->result_locked)
+                                                    Definitieve uitslag: {{ $match->home_score }} - {{ $match->away_score }}
+                                                @elseif ($match->result_finalized)
+                                                    Voorlopige uitslag: {{ $match->home_score }} - {{ $match->away_score }}
                                                 @else
                                                     Nog geen uitslag
                                                 @endif
@@ -270,6 +274,7 @@
                                     </button>
                                     </form>
                                 </details>
+                                @if (! $match->result_locked)
                                 <form method="POST" action="{{ route('admin.tournaments.matches.result', ['tournament' => $tournament, 'match' => $match]) }}" class="grid gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3 sm:grid-cols-2 sm:items-end">
                                     @csrf
                                     @method('PUT')
@@ -303,14 +308,23 @@
                                         @enderror
                                     </div>
                                     <div class="sm:col-span-2">
-                                        <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-zijpalm-700 px-4 font-semibold text-white shadow-sm transition hover:bg-zijpalm-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zijpalm-700 sm:w-auto">
+                                        <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-zijpalm-700 bg-white px-4 font-semibold text-zijpalm-800 shadow-sm transition hover:bg-zijpalm-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zijpalm-700 sm:w-auto">
                                             Uitslag opslaan
                                         </button>
+                                        <button type="submit" name="{{ $finalizeField }}" value="1" class="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-zijpalm-700 px-4 font-semibold text-white shadow-sm transition hover:bg-zijpalm-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zijpalm-700 sm:ml-2 sm:mt-0 sm:w-auto">
+                                            Uitslag definitief maken
+                                        </button>
                                     </div>
+                                    @error($finalizeField)
+                                        <p role="alert" class="text-sm text-red-700 sm:col-span-2">{{ $message }}</p>
+                                    @enderror
                                     @if ($match->result_finalized)
-                                        <p class="text-xs text-zinc-700 sm:col-span-2">Wil je de uitslag wissen? Maak beide scorevelden leeg en sla op.</p>
+                                        <p class="text-xs text-zinc-700 sm:col-span-2">Deze uitslag is voorlopig. Je kunt hem aanpassen of definitief maken.</p>
                                     @endif
                                 </form>
+                                @else
+                                    <p class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-900">Deze uitslag is definitief en kan niet meer worden aangepast.</p>
+                                @endif
                                     </div>
                                 </details>
                             </li>

@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
-use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 class TournamentMatch extends Model
 {
@@ -24,6 +24,7 @@ class TournamentMatch extends Model
         'away_score',
         'penalty_winner',
         'result_finalized',
+        'result_locked',
     ];
 
     protected $casts = [
@@ -33,6 +34,7 @@ class TournamentMatch extends Model
         'home_score' => 'integer',
         'away_score' => 'integer',
         'result_finalized' => 'boolean',
+        'result_locked' => 'boolean',
     ];
 
     public function tournament(): BelongsTo
