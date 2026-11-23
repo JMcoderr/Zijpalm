@@ -475,7 +475,7 @@ it('closes prediction changes at kickoff', function () {
     $match = $tournament->matches()->create([
         'home_team_id' => $homeTeam->id,
         'away_team_id' => $awayTeam->id,
-        'stage' => 'group',
+        'stage' => 'knockout',
         'round_number' => 1,
         'match_number' => 1,
         'kickoff' => $kickoff,
@@ -498,13 +498,14 @@ it('closes prediction changes at kickoff', function () {
     $this->assertDatabaseCount('tournament_predictions', 0);
 });
 
-// Group predictions close at the earlier of the tournament start or the match kickoff.
-it('closes group predictions when the tournament starts before kickoff', function () {
-    $deadline = now()->addHour();
+// Group predictions stay open after the tournament starts, until that match's kickoff.
+it('keeps group predictions open until kickoff when the tournament starts first', function () {
+    $start = now()->addHour();
+    $kickoff = $start->copy()->addHour();
     $tournament = Tournament::create([
         'name' => 'Tournament Start Deadline Cup',
         'team_count' => 4,
-        'starts_at' => $deadline,
+        'starts_at' => $start,
     ]);
     $homeTeam = $tournament->teams()->create(['name' => 'Start Deadline Home']);
     $awayTeam = $tournament->teams()->create(['name' => 'Start Deadline Away']);
@@ -514,20 +515,20 @@ it('closes group predictions when the tournament starts before kickoff', functio
         'stage' => 'group',
         'round_number' => 1,
         'match_number' => 1,
-        'kickoff' => $deadline->copy()->addHour(),
+        'kickoff' => $kickoff,
     ]);
     $member = User::factory()->create();
     $tournament->participants()->create(['user_id' => $member->id]);
-    $this->travelTo($deadline);
+    $this->travelTo($start);
 
     $this->actingAs($member)
         ->get(route('football-pool.matches', $tournament))
         ->assertOk()
         ->assertSeeText(
-            'Voorspellen gesloten sinds '.TournamentTime::formatLocal($deadline, 'd-m-Y H:i').'.',
+            'Voorspellen kan tot '.TournamentTime::formatLocal($kickoff, 'd-m-Y H:i').'.',
         )
-        ->assertDontSee('name="predicted_home_score_'.$match->id.'"', false)
-        ->assertSee('De deadline voor deze wedstrijd is verstreken.');
+        ->assertSee('name="predicted_home_score_'.$match->id.'"', false)
+        ->assertDontSee('De deadline voor deze wedstrijd is verstreken.');
 
     $this->put(route('football-pool.matches.predictions.store', [
         'tournament' => $tournament,
@@ -537,13 +538,28 @@ it('closes group predictions when the tournament starts before kickoff', functio
         'predicted_away_score_'.$match->id => 1,
     ])
         ->assertRedirect(route('football-pool.matches', $tournament))
+        ->assertSessionHas('success', 'Je voorspelling is opgeslagen.');
+
+    $this->travelTo($kickoff);
+    $this->put(route('football-pool.matches.predictions.store', [
+        'tournament' => $tournament,
+        'match' => $match,
+    ]), [
+        'predicted_home_score_'.$match->id => 3,
+        'predicted_away_score_'.$match->id => 0,
+    ])
+        ->assertRedirect(route('football-pool.matches', $tournament))
         ->assertSessionHas('error', 'De deadline voor deze voorspelling is verstreken.');
 
-    $this->assertDatabaseCount('tournament_predictions', 0);
+    $this->assertDatabaseHas('tournament_predictions', [
+        'match_id' => $match->id,
+        'home_score' => 2,
+        'away_score' => 1,
+    ]);
 });
 
-// Generated group matches follow the same tournament-wide prediction deadline.
-it('allows predictions for a generated later-round match only until the tournament starts', function () {
+// Generated group matches use their own kickoff instead of the tournament start.
+it('keeps generated later-round predictions open until their kickoff', function () {
     $start = TournamentTime::fromLocalInput('2026-06-11T18:00');
     $tournament = Tournament::create([
         'name' => 'Generated Prediction Cup',
@@ -573,7 +589,7 @@ it('allows predictions for a generated later-round match only until the tourname
     $homeScoreField = 'predicted_home_score_'.$match->id;
     $awayScoreField = 'predicted_away_score_'.$match->id;
 
-    $this->travelTo($start->copy()->subMinute());
+    $this->travelTo($start);
     $this->actingAs($member)
         ->put($predictionRoute, [
             $homeScoreField => 2,
@@ -588,7 +604,7 @@ it('allows predictions for a generated later-round match only until the tourname
         'away_score' => 1,
     ]);
 
-    $this->travelTo($start);
+    $this->travelTo($match->kickoff);
     $this->put($predictionRoute, [
         $homeScoreField => 3,
         $awayScoreField => 0,

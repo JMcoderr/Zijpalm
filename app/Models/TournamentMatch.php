@@ -84,13 +84,6 @@ class TournamentMatch extends Model
 
     public function predictionDeadline(): Carbon
     {
-        $deadline = $this->kickoff;
-        $tournamentStart = $this->stage === 'group'
-            ? $this->tournament?->starts_at
-            : null;
-
-        return $tournamentStart && $tournamentStart->lessThan($deadline)
-            ? $tournamentStart
-            : $deadline;
+        return $this->kickoff;
     }
 }

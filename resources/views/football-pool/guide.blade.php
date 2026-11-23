@@ -13,7 +13,7 @@
             </li>
             <li class="rounded-xl border border-zinc-200 border-l-2 border-l-zijpalm-400 bg-white p-4">
                 <h2 class="text-base font-bold text-zijpalm-900">2. Voorspel de score</h2>
-                <p class="mt-2">Klik op <strong>Naar wedstrijden</strong> en daarna op <strong>Voorspel deze wedstrijd</strong>. Vul de doelpunten in en klik op <strong>Voorspelling opslaan</strong>. Je kunt voorspellen tot de tijd die bij de wedstrijd staat.</p>
+                <p class="mt-2">Klik op <strong>Naar wedstrijden</strong> en daarna op <strong>Voorspel deze wedstrijd</strong>. Vul de doelpunten in en klik op <strong>Voorspelling opslaan</strong>. Je kunt voorspellen tot de aftrap van de wedstrijd.</p>
             </li>
             <li class="rounded-xl border border-zinc-200 border-l-2 border-l-zijpalm-400 bg-white p-4">
                 <h2 class="text-base font-bold text-zijpalm-900">3. Bekijk je punten</h2>

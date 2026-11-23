@@ -17,7 +17,7 @@
                 </li>
                 <li class="rounded-xl border border-zinc-200 border-l-2 border-l-zijpalm-400 bg-white p-4">
                     <h2 class="text-base font-bold text-zijpalm-900">3. Plan wedstrijden</h2>
-                    <p class="mt-1">Open <strong>2. Wedstrijden</strong>. Stel eerst de startdatum in. Klik daarna op <strong>Wedstrijdschema genereren</strong> of kies <strong>Zelf een wedstrijd toevoegen</strong>.</p>
+                    <p class="mt-1">Open <strong>2. Wedstrijden</strong>. Stel eerst de startdatum in. Klik daarna op <strong>Wedstrijdschema genereren</strong> of kies <strong>Zelf een wedstrijd toevoegen</strong>. Deelnemers kunnen per wedstrijd voorspellen tot de aftrap.</p>
                 </li>
                 <li class="rounded-xl border border-zinc-200 border-l-2 border-l-zijpalm-400 bg-white p-4">
                     <h2 class="text-base font-bold text-zijpalm-900">4. Sla de uitslag op</h2>
