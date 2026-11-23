@@ -10,6 +10,7 @@ use App\Mail\ReserveUpgrade;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use BumpCore\EditorPhp\EditorPhp;
@@ -72,6 +73,11 @@ class Activity extends Model
     public function applications()
     {
         return $this->hasMany(Application::class);
+    }
+
+    public function charityActivityLink(): HasOne
+    {
+        return $this->hasOne(CharityActivityLink::class);
     }
 
     public function shopProduct()
