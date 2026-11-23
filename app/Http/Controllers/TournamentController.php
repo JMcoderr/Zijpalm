@@ -15,6 +15,7 @@ class TournamentController extends Controller
     public function index(): View
     {
         $tournaments = Tournament::query()
+            ->withCount(['teams', 'matches', 'participants'])
             ->orderBy('starts_at')
             ->orderBy('name')
             ->get();

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Tournament;
+use Database\Seeders\FootballPoolDemoSeeder;
 use Database\Seeders\TournamentSeeder;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -70,6 +71,28 @@ it('seeds a reusable tournament with demo teams and matches for local developmen
         ->assertSee('Almere Noord')
         ->assertSee('Almere Zuid')
         ->assertSee('2 - 1');
+});
+
+it('seeds an open practice match and a scored leaderboard without resetting edits', function () {
+    $existing = Tournament::create(['name' => 'Existing tournament', 'team_count' => 2]);
+    $this->seed(FootballPoolDemoSeeder::class);
+    $demo = Tournament::where('name', 'Zijpalm Oefenpoule')->firstOrFail();
+    $upcoming = $demo->matches()->where('stage', 'knockout')->firstOrFail();
+    $upcoming->update(['kickoff' => now()->addDays(3)]);
+
+    $this->seed(FootballPoolDemoSeeder::class);
+
+    expect($upcoming->fresh()->predictionDeadline()->isFuture())->toBeTrue();
+    expect($upcoming->fresh()->kickoff->equalTo($upcoming->kickoff))->toBeTrue();
+    $this->assertDatabaseCount('tournaments', 2);
+    $this->assertDatabaseHas('tournaments', ['id' => $existing->id, 'name' => $existing->name]);
+    $this->assertDatabaseCount('tournament_predictions', 3);
+    $this->assertDatabaseHas('tournament_predictions', ['points' => 4]);
+    $this->assertDatabaseHas('tournament_predictions', ['points' => 1]);
+    $this->assertDatabaseHas('tournament_predictions', ['points' => 0]);
+
+    $this->get(route('football-pool.leaderboard', $demo))->assertOk()
+        ->assertSeeInOrder(['PoulePanda', 'GoalGieter', 'BalBezoeker']);
 });
 
 it('keeps team names unique within a tournament and removes teams with their tournament', function () {

@@ -18,7 +18,7 @@ it('allows admins to create groups and assign teams to them', function () {
     $this->actingAs($admin)
         ->get(route('admin.tournaments.edit', $tournament))
         ->assertOk()
-        ->assertSee('Poules')
+        ->assertSee('Poule-indeling (optioneel)')
         ->assertSee('Er zijn nog geen poules aangemaakt.');
 
     $this->post(route('admin.tournaments.groups.store', $tournament), [

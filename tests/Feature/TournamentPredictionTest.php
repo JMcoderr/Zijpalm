@@ -87,7 +87,7 @@ it('shows prediction progress only for matches that can still be predicted', fun
         'match_number' => 1,
         'kickoff' => $now->copy()->addHour(),
     ]);
-    $tournament->matches()->create([
+    $nextMatch = $tournament->matches()->create([
         'home_team_id' => $homeTeam->id,
         'away_team_id' => $awayTeam->id,
         'stage' => 'group',
@@ -133,15 +133,79 @@ it('shows prediction progress only for matches that can still be predicted', fun
         'away_score' => 1,
     ]);
 
+    // The shortcut must skip saved picks and fixtures that no longer accept predictions.
     $this->actingAs($member)
         ->get(route('football-pool.matches', $tournament))
         ->assertOk()
-        ->assertSee('Je hebt 1 van de 2 mogelijke voorspellingen ingevuld.');
+        ->assertSee('Je hebt 1 van de 2 mogelijke voorspellingen ingevuld.')
+        ->assertSee('href="#match-'.$nextMatch->id.'"', false)
+        ->assertDontSee('href="#match-'.$openMatch->id.'"', false);
+
+    $participant->predictions()->create([
+        'match_id' => $nextMatch->id,
+        'home_score' => 0,
+        'away_score' => 0,
+    ]);
+
+    $this->get(route('football-pool.matches', $tournament))
+        ->assertOk()
+        ->assertSee('Je hebt alle open wedstrijden ingevuld.')
+        ->assertDontSee('Naar de eerstvolgende wedstrijd zonder voorspelling');
 
     $this->actingAs(User::factory()->create())
         ->get(route('football-pool.matches', $tournament))
         ->assertOk()
-        ->assertDontSee('mogelijke voorspellingen ingevuld');
+        ->assertDontSee('mogelijke voorspellingen ingevuld')
+        ->assertDontSee('Naar de eerstvolgende wedstrijd zonder voorspelling');
+});
+
+it('keeps prediction forms closed until a member opens one and reopens only the invalid match', function () {
+    $tournament = Tournament::create([
+        'name' => 'Simple Prediction Cup',
+        'team_count' => 4,
+    ]);
+    $homeTeam = $tournament->teams()->create(['name' => 'Simple Home']);
+    $awayTeam = $tournament->teams()->create(['name' => 'Simple Away']);
+    $firstMatch = $tournament->matches()->create([
+        'home_team_id' => $homeTeam->id,
+        'away_team_id' => $awayTeam->id,
+        'stage' => 'group',
+        'round_number' => 1,
+        'match_number' => 1,
+        'kickoff' => now()->addHour(),
+    ]);
+    $secondMatch = $tournament->matches()->create([
+        'home_team_id' => $awayTeam->id,
+        'away_team_id' => $homeTeam->id,
+        'stage' => 'group',
+        'round_number' => 1,
+        'match_number' => 2,
+        'kickoff' => now()->addHours(2),
+    ]);
+    $member = User::factory()->create();
+    $tournament->participants()->create(['user_id' => $member->id]);
+    $matchesUrl = route('football-pool.matches', $tournament);
+
+    $page = $this->actingAs($member)->get($matchesUrl)->assertOk();
+    preg_match_all('/<details name="match-predictions" id="prediction-form-\d+"[^>]*>/', $page->getContent(), $forms);
+    expect($forms[0])->toHaveCount(2)
+        ->and(collect($forms[0])->filter(fn (string $tag): bool => preg_match('/\sopen(?=\s|>)/', $tag) === 1))->toBeEmpty();
+
+    $this->from($matchesUrl)
+        ->put(route('football-pool.matches.predictions.store', [
+            'tournament' => $tournament,
+            'match' => $firstMatch,
+        ]), [
+            'predicted_home_score_'.$firstMatch->id => 100,
+            'predicted_away_score_'.$firstMatch->id => 1,
+        ])
+        ->assertSessionHasErrors('predicted_home_score_'.$firstMatch->id);
+
+    $page = $this->get($matchesUrl)->assertOk();
+    preg_match('/<details name="match-predictions" id="prediction-form-'.$firstMatch->id.'"[^>]*>/', $page->getContent(), $firstForm);
+    preg_match('/<details name="match-predictions" id="prediction-form-'.$secondMatch->id.'"[^>]*>/', $page->getContent(), $secondForm);
+    expect($firstForm[0] ?? '')->toContain(' open')
+        ->and($secondForm[0] ?? '')->not->toContain(' open');
 });
 
 it('allows an enrolled member to remove their own prediction before the deadline', function () {
@@ -350,7 +414,8 @@ it('requires a tournament registration before accepting predictions', function (
 
     $this->get(route('football-pool.matches', $tournament))
         ->assertOk()
-        ->assertSee('Log in en meld je aan voor dit toernooi')
+        ->assertSee('Log in')
+        ->assertSee('meld je aan voor het toernooi')
         ->assertDontSee('name="predicted_home_score_'.$match->id.'"', false);
 
     $this->put(route('football-pool.matches.predictions.store', [
@@ -458,7 +523,10 @@ it('closes group predictions when the tournament starts before kickoff', functio
     $this->actingAs($member)
         ->get(route('football-pool.matches', $tournament))
         ->assertOk()
-        ->assertSee('Voorspellen kan tot '.TournamentTime::formatLocal($deadline, 'd-m-Y H:i'))
+        ->assertSeeText(
+            'Voorspellen gesloten sinds '.TournamentTime::formatLocal($deadline, 'd-m-Y H:i').'.',
+        )
+        ->assertDontSee('name="predicted_home_score_'.$match->id.'"', false)
         ->assertSee('De deadline voor deze wedstrijd is verstreken.');
 
     $this->put(route('football-pool.matches.predictions.store', [

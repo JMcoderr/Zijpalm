@@ -24,14 +24,9 @@ class TournamentParticipantController extends Controller
             ->get(['id', 'tournament_id', 'display_name'])
             ->keyBy('tournament_id') ?? collect();
 
-        $joinedTournamentIds = $joinedParticipants->keys()
-            ->map(static fn ($tournamentId) => (int) $tournamentId)
-            ->all();
-
         return view('football-pool.index', [
             'tournaments' => $tournaments,
             'joinedParticipants' => $joinedParticipants,
-            'joinedTournamentIds' => $joinedTournamentIds,
         ]);
     }
 

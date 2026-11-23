@@ -31,20 +31,24 @@ class TournamentMatchController extends Controller
             ? $participant->predictions->keyBy('match_id')
             : collect();
         $predictionProgress = ['filled' => 0, 'total' => 0];
+        $nextPredictionMatch = null;
+        // Use the same set of open matches for the badges, progress and shortcut.
+        $openMatches = $matches->filter(fn ($match) => $match->home_team_id !== null
+            && $match->away_team_id !== null
+            && ! $match->result_finalized
+            && $match->predictionDeadline()->isFuture())->keyBy('id');
 
         if ($participant) {
-            // Count only matches the participant can still predict.
-            $openMatches = $matches->filter(fn ($match) => $match->home_team_id !== null
-                && $match->away_team_id !== null
-                && ! $match->result_finalized
-                && $match->predictionDeadline()->isFuture());
             $predictionProgress = [
                 'filled' => $openMatches->filter(fn ($match) => $predictions->has($match->id))->count(),
                 'total' => $openMatches->count(),
             ];
+            $nextPredictionMatch = $openMatches->first(fn ($match) => ! $predictions->has($match->id));
         }
 
-        return view('football-pool.matches', compact('tournament', 'matches', 'participant', 'predictions', 'predictionProgress'));
+        return view('football-pool.matches', compact(
+            'tournament', 'matches', 'participant', 'predictions', 'predictionProgress', 'openMatches', 'nextPredictionMatch',
+        ));
     }
 
     public function store(Request $request, Tournament $tournament): RedirectResponse

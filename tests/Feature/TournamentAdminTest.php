@@ -13,8 +13,15 @@ it('allows admins to create and view tournaments', function () {
     $this->actingAs($admin)
         ->get(route('admin.tournaments.index'))
         ->assertOk()
-        ->assertSee('Toernooi aanmaken')
+        ->assertSee('Nieuw toernooi')
+        ->assertSee('href="'.route('admin.tournaments.guide').'"', false)
         ->assertSee('Er zijn nog geen toernooien aangemaakt.');
+
+    $this->get(route('admin.tournaments.guide'))
+        ->assertOk()
+        ->assertSeeText('Handleiding voor beheerders')
+        ->assertSeeText('Sla de uitslag op')
+        ->assertSee('href="'.route('admin.tournaments.index').'"', false);
 
     $this->post(route('admin.tournaments.store'), [
         'name' => 'World Cup 2026',
@@ -38,7 +45,7 @@ it('allows admins to create and view tournaments', function () {
         ->assertOk()
         ->assertSee('World Cup 2026')
         ->assertSee('16')
-        ->assertSee('11-06-2026 20:00');
+        ->assertSeeText('11-06-2026 20:00');
 });
 
 // The start date is optional, so a tournament can be created without that field.
@@ -96,6 +103,9 @@ it('allows admins to edit a tournament', function () {
         ->get(route('admin.tournaments.edit', $tournament))
         ->assertOk()
         ->assertSee('Toernooi bewerken')
+        ->assertSee('name="tournament-sections"', false)
+        ->assertSee('lang="nl"', false)
+        ->assertSeeText('Startdatum en tijd (optioneel)')
         ->assertSee('value="Old tournament name"', false)
         ->assertSee('value="16"', false)
         ->assertSee('value="2026-06-11T20:00"', false)
@@ -117,6 +127,23 @@ it('allows admins to edit a tournament', function () {
         'description' => 'Updated description',
         'starts_at' => '2026-12-01 18:00:00',
     ]);
+});
+
+it('opens only the first setup step when an admin begins a tournament', function () {
+    $tournament = Tournament::create([
+        'name' => 'Simple Admin Cup',
+        'team_count' => 4,
+    ]);
+
+    $page = $this->actingAs(User::factory()->admin()->create())
+        ->get(route('admin.tournaments.edit', $tournament))
+        ->assertOk();
+
+    preg_match_all('/<details name="tournament-sections"[^>]*\sopen(?=\s|>)[^>]*>/', $page->getContent(), $openSections);
+    preg_match('/<details name="tournament-sections"[^>]*\sopen(?=\s|>)[^>]*>\s*<summary[^>]*>.*?<span[^>]*>([^<]+)<\/span>/s', $page->getContent(), $firstSection);
+
+    expect($openSections[0])->toHaveCount(1)
+        ->and($firstSection[1] ?? '')->toBe('1. Teams en poules');
 });
 
 it('allows admins to delete a tournament and all its data but keeps member accounts', function () {
@@ -165,8 +192,17 @@ it('allows admins to delete a tournament and all its data but keeps member accou
     $this->actingAs($admin)
         ->get(route('admin.tournaments.index'))
         ->assertOk()
-        ->assertSee('Verwijderen')
-        ->assertSee('alle teams, wedstrijden, deelnemers en voorspellingen wilt verwijderen');
+        ->assertSeeText('2 / 2 teams')
+        ->assertSeeText('1 wedstrijd')
+        ->assertSeeText('1 deelnemer')
+        ->assertDontSee('action="'.route('admin.tournaments.destroy', $tournament).'"', false);
+
+    $this->get(route('admin.tournaments.edit', $tournament))
+        ->assertOk()
+        ->assertSee('href="'.route('admin.tournaments.guide').'"', false)
+        ->assertSee('alle teams, wedstrijden, deelnemers en voorspellingen wilt verwijderen')
+        ->assertSeeText('Nog geen uitslag')
+        ->assertSeeText('Kies hieronder wat je wilt aanpassen.');
 
     $this->delete(route('admin.tournaments.destroy', $tournament))
         ->assertRedirect(route('admin.tournaments.index'))

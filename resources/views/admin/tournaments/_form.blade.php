@@ -1,6 +1,7 @@
 <form method="POST"
       action="{{ $tournament ? route('admin.tournaments.update', $tournament) : route('admin.tournaments.store') }}"
-      class="grid min-w-0 gap-4 xl:grid-cols-2">
+      lang="nl"
+      class="grid min-w-0 gap-4 sm:grid-cols-2">
     @csrf
     @if ($tournament)
         @method('PUT')
@@ -24,17 +25,20 @@
         @enderror
     </div>
 
-    <div class="min-w-0">
+    <div class="min-w-0 sm:col-span-2">
         <label for="starts_at" class="mb-1 block text-sm font-semibold text-zinc-800">Startdatum en tijd (optioneel)</label>
-        <input id="starts_at" name="starts_at" type="datetime-local"
+        <p id="starts_at-help" class="mb-2 text-xs text-zinc-600">Laat leeg als de datum nog niet bekend is.</p>
+        <input id="starts_at" name="starts_at" type="datetime-local" lang="nl"
                value="{{ old('starts_at', \App\Support\TournamentTime::toLocalInput($tournament?->starts_at)) }}"
-               class="h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">
+               aria-describedby="starts_at-help{{ $errors->has('starts_at') ? ' starts_at-error' : '' }}"
+               @error('starts_at') aria-invalid="true" @enderror
+               class="h-11 w-full min-w-0 rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">
         @error('starts_at')
-            <p role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p>
+            <p id="starts_at-error" role="alert" class="mt-1 text-sm text-red-700">{{ $message }}</p>
         @enderror
     </div>
 
-    <div class="min-w-0">
+    <div class="min-w-0 sm:col-span-2">
         <label for="description" class="mb-1 block text-sm font-semibold text-zinc-800">Omschrijving (optioneel)</label>
         <textarea id="description" name="description" rows="2"
                   class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zijpalm-500 focus:outline-0 focus:ring-2 focus:ring-zijpalm-400">{{ old('description', $tournament?->description) }}</textarea>

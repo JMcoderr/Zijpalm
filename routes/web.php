@@ -28,6 +28,7 @@ use App\Http\Controllers\UserController;
 // Home view
 Route::view('/', 'home')->name('home');
 Route::get('voetbalpoule', [TournamentParticipantController::class, 'index'])->name('football-pool.index');
+Route::view('voetbalpoule/handleiding', 'football-pool.guide')->name('football-pool.guide');
 Route::get('voetbalpoule/{tournament}/wedstrijden', [TournamentMatchController::class, 'index'])
     ->name('football-pool.matches');
 Route::get('voetbalpoule/{tournament}/ranglijst', [TournamentLeaderboardController::class, 'index'])
@@ -261,6 +262,7 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->controller(AdminC
         Route::get('content', 'content')->name('content');
         // Keep football-pool tournament management inside the administrator-only area.
         Route::get('toernooien', [TournamentController::class, 'index'])->name('tournaments.index');
+        Route::view('toernooien/handleiding', 'admin.tournaments.guide')->name('tournaments.guide');
         Route::post('toernooien', [TournamentController::class, 'store'])->name('tournaments.store');
         Route::post('toernooien/{tournament}/poules', [TournamentGroupController::class, 'store'])
             ->name('tournaments.groups.store');

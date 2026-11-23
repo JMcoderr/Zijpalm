@@ -14,7 +14,7 @@
 @endphp
 
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="nl">
     <head>
         {{-- Send title to head to display --}}
         @include('partials.head', ['title' => $title])

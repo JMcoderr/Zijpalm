@@ -56,7 +56,8 @@ it('allows admins to add matches using teams from the same tournament', function
         ->assertOk()
         ->assertSee('Home Team')
         ->assertSee('Away Team')
-        ->assertSee('11-06-2026 18:00');
+        ->assertSeeText('11-06-2026')
+        ->assertSeeText('11-06-2026 18:00');
 });
 
 // A repeated fixture cannot be scheduled again at the same time, even if the teams are swapped.
@@ -188,10 +189,19 @@ it('rejects invalid or duplicate reschedule times without changing the match', f
     $kickoffField = 'kickoff_'.$firstMatch->id;
     $this->actingAs(User::factory()->admin()->create());
 
+    $page = $this->get(route('admin.tournaments.edit', $tournament))->assertOk();
+    expect($page->getContent())->not->toMatch('/<details id="admin-match-'.$firstMatch->id.'"[^>]*\sopen\b[^>]*>/');
+
     $this->from(route('admin.tournaments.edit', $tournament))
         ->put($route, [$kickoffField => '2026-03-29T02:30'])
         ->assertRedirect(route('admin.tournaments.edit', $tournament))
         ->assertSessionHasErrors($kickoffField);
+
+    // Keep the invalid form visible without opening unrelated fixtures.
+    $page = $this->get(route('admin.tournaments.edit', $tournament))->assertOk();
+    expect($page->getContent())
+        ->toMatch('/<details(?=[^>]*\bid="admin-match-'.$firstMatch->id.'")[^>]*\sopen(?=\s|>)[^>]*>/')
+        ->not->toMatch('/<details(?=[^>]*\bid="admin-match-'.$secondMatch->id.'")[^>]*\sopen(?=\s|>)[^>]*>/');
 
     $this->from(route('admin.tournaments.edit', $tournament))
         ->put($route, [$kickoffField => '2026-06-12T18:00'])
@@ -422,9 +432,12 @@ it('requires a generated group schedule and admin access for knockout fixtures',
         ->assertRedirect(route('admin.tournaments.edit', $tournament))
         ->assertSessionHasErrors('knockout_schedule');
 
-    $this->get(route('admin.tournaments.edit', $tournament))
+    $page = $this->get(route('admin.tournaments.edit', $tournament))
         ->assertOk()
         ->assertSee('Genereer eerst het groepsschema');
+
+    preg_match('/<details name="tournament-sections"[^>]*\sopen(?=\s|>)[^>]*>\s*<summary[^>]*>(.*?)<\/summary>/s', $page->getContent(), $openSection);
+    expect($openSection[1] ?? '')->toContain('Wedstrijden');
 
     $this->assertDatabaseCount('matches', 0);
 });
