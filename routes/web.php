@@ -264,6 +264,8 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->controller(AdminC
         Route::get('toernooien', [TournamentController::class, 'index'])->name('tournaments.index');
         Route::view('toernooien/handleiding', 'admin.tournaments.guide')->name('tournaments.guide');
         Route::post('toernooien', [TournamentController::class, 'store'])->name('tournaments.store');
+        Route::post('toernooien/{tournament}/poules/automatisch-indelen', [TournamentGroupController::class, 'generate'])
+            ->name('tournaments.groups.generate');
         Route::post('toernooien/{tournament}/poules', [TournamentGroupController::class, 'store'])
             ->name('tournaments.groups.store');
         Route::delete('toernooien/{tournament}/poules/{group}', [TournamentGroupController::class, 'destroy'])

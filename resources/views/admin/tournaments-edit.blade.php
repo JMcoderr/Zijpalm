@@ -5,8 +5,8 @@
                 $showErrors = $errors->any();
                 $startWithTeams = $tournament->matches->isEmpty() && $tournament->teams->count() < $tournament->team_count;
                 $settingsHaveErrors = $errors->hasAny(['name', 'team_count', 'description', 'starts_at']);
-                $groupsHaveErrors = $errors->has('group_name');
-                $teamsHaveErrors = $errors->has('group_name') || collect($errors->keys())->contains(
+                $groupsHaveErrors = $errors->hasAny(['group_name', 'group_assignment']);
+                $teamsHaveErrors = $errors->hasAny(['group_name', 'group_assignment']) || collect($errors->keys())->contains(
                     fn (string $key): bool => in_array($key, ['team_name', 'team_group_id'], true)
                         || str_starts_with($key, 'team_name_')
                         || str_starts_with($key, 'team_group_id_'),
@@ -56,7 +56,7 @@
             @if ($showErrors)
                 <p role="alert" class="mt-4 rounded-lg border border-red-200 border-l-4 border-l-red-600 bg-red-50 p-3 text-sm text-red-900">Opslaan is niet gelukt. Controleer de melding en probeer het opnieuw.</p>
             @endif
-            <x-admin.tournament-section title="1. Teams en poules" description="Voeg eerst de teams toe. Poules zijn alleen nodig voor een automatisch wedstrijdschema."
+            <x-admin.tournament-section title="1. Teams en poules" description="Voeg eerst alle teams toe. Maak de poules zelf of laat ze automatisch indelen."
                 :count="$tournament->teams->count().' / '.$tournament->team_count.' teams'" :expanded="$teamsHaveErrors || (! $settingsHaveErrors && ! $matchesHaveErrors && $startWithTeams)">
 
             <details name="tournament-options" class="mb-4 overflow-hidden rounded-lg border border-zinc-200 bg-white" @if ($groupsHaveErrors) open @endif>
@@ -64,7 +64,22 @@
                     <span>Poule-indeling (optioneel)</span>
                 </summary>
                 <div class="border-t border-zinc-200 p-3">
-                    <p class="mb-3 rounded-md bg-zinc-50 px-3 py-2 text-sm text-zinc-700">Maak poules als je alle wedstrijden automatisch wilt laten plannen.</p>
+                    <p class="mb-3 rounded-md bg-zinc-50 px-3 py-2 text-sm text-zinc-700">Voor automatische indeling zijn 8, 16, 32 of 64 teams nodig. De teams worden in invoervolgorde verdeeld over poules van vier.</p>
+            @if (! $hasGeneratedSchedule && $tournament->groups->isEmpty())
+                @if (in_array($tournament->team_count, [8, 16, 32, 64], true) && $tournament->teams->count() === $tournament->team_count)
+                    <form method="POST" action="{{ route('admin.tournaments.groups.generate', $tournament) }}" class="mb-4">
+                        @csrf
+                        <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-zijpalm-700 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-zijpalm-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zijpalm-700">
+                            Poule-indeling automatisch maken
+                        </button>
+                    </form>
+                @elseif ($tournament->teams->count() < $tournament->team_count)
+                    <p class="mb-4 text-sm text-zinc-600">Voeg eerst alle {{ $tournament->team_count }} teams toe om de poules automatisch te verdelen.</p>
+                @endif
+            @endif
+            @error('group_assignment')
+                <p role="alert" class="mb-4 text-sm text-red-700">{{ $message }}</p>
+            @enderror
             @if ($tournament->groups->isEmpty())
                 <p class="mb-4 text-sm text-zinc-700">Er zijn nog geen poules aangemaakt.</p>
             @else
@@ -211,7 +226,7 @@
                             Wedstrijdschema genereren
                         </button>
                     </form>
-                    <p class="mb-4 text-xs text-zinc-600">Voor automatisch plannen: voeg poules toe en wijs elk team aan een poule toe.</p>
+                    <p class="mb-4 text-xs text-zinc-600">Voor automatisch plannen: maak poules en wijs elk team toe, of gebruik de automatische indeling hierboven.</p>
                 @else
                     <p class="mb-3 text-sm text-zinc-700">Open de wedstrijd die je wilt aanpassen.</p>
                     <ul class="mb-4 space-y-2">

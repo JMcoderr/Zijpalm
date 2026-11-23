@@ -2,6 +2,7 @@
 
 use App\Models\Tournament;
 use App\Models\User;
+use App\Support\TournamentTime;
 use Database\Seeders\TournamentSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -142,6 +143,110 @@ it('only deletes empty groups from their own tournament', function () {
     $this->assertDatabaseMissing('tournament_groups', ['id' => $emptyGroup->id]);
 });
 
+// Supported tournament sizes are assigned evenly to four-team groups in team entry order.
+it('automatically assigns supported team counts to evenly sized groups', function () {
+    $admin = User::factory()->admin()->create();
+
+    foreach ([8, 16, 32, 64] as $teamCount) {
+        $tournament = Tournament::create([
+            'name' => "Automatic groups {$teamCount}",
+            'team_count' => $teamCount,
+            'starts_at' => TournamentTime::fromLocalInput('2026-06-11T18:00'),
+        ]);
+
+        for ($teamNumber = 1; $teamNumber <= $teamCount; $teamNumber++) {
+            $tournament->teams()->create(['name' => "Team {$teamNumber}"]);
+        }
+
+        $this->actingAs($admin)
+            ->get(route('admin.tournaments.edit', $tournament))
+            ->assertOk()
+            ->assertSee('Poule-indeling automatisch maken');
+
+        $this->post(route('admin.tournaments.groups.generate', $tournament))
+            ->assertRedirect(route('admin.tournaments.edit', $tournament))
+            ->assertSessionHas(
+                'success',
+                'Poule-indeling gemaakt: '.($teamCount / 4).' poules van 4 teams.',
+            );
+
+        $groups = $tournament->groups()
+            ->with('teams')
+            ->orderBy('name')
+            ->get();
+
+        expect($groups->pluck('name')->all())->toBe(
+            range('A', chr(ord('A') + ($teamCount / 4) - 1)),
+        )->and($groups->every(fn ($group) => $group->teams->count() === 4))->toBeTrue();
+
+        foreach ($tournament->teams()->orderBy('id')->get() as $index => $team) {
+            expect($team->tournament_group_id)->toBe($groups[$index % $groups->count()]->id);
+        }
+
+        $this->post(route('admin.tournaments.schedule.generate', $tournament))
+            ->assertRedirect(route('admin.tournaments.edit', $tournament))
+            ->assertSessionHas(
+                'success',
+                'Wedstrijdschema gegenereerd: '.(($teamCount / 4) * 6).' wedstrijden.',
+            );
+    }
+});
+
+it('does not partially create automatic groups for incomplete or unsupported tournaments', function () {
+    $admin = User::factory()->admin()->create();
+    $incompleteTournament = Tournament::create([
+        'name' => 'Incomplete automatic groups',
+        'team_count' => 8,
+    ]);
+
+    for ($teamNumber = 1; $teamNumber < 8; $teamNumber++) {
+        $incompleteTournament->teams()->create(['name' => "Incomplete team {$teamNumber}"]);
+    }
+
+    $this->actingAs($admin)
+        ->from(route('admin.tournaments.edit', $incompleteTournament))
+        ->post(route('admin.tournaments.groups.generate', $incompleteTournament))
+        ->assertSessionHasErrors('group_assignment');
+    $this->assertDatabaseCount('tournament_groups', 0);
+
+    $unsupportedTournament = Tournament::create([
+        'name' => 'Unsupported automatic groups',
+        'team_count' => 12,
+    ]);
+
+    for ($teamNumber = 1; $teamNumber <= 12; $teamNumber++) {
+        $unsupportedTournament->teams()->create(['name' => "Unsupported team {$teamNumber}"]);
+    }
+
+    $this->from(route('admin.tournaments.edit', $unsupportedTournament))
+        ->post(route('admin.tournaments.groups.generate', $unsupportedTournament))
+        ->assertSessionHasErrors('group_assignment');
+    $this->assertDatabaseCount('tournament_groups', 0);
+});
+
+it('keeps a manually created group when automatic assignment is requested', function () {
+    $tournament = Tournament::create([
+        'name' => 'Manual groups stay in place',
+        'team_count' => 8,
+    ]);
+    $group = $tournament->groups()->create(['name' => 'Manual']);
+
+    for ($teamNumber = 1; $teamNumber <= 8; $teamNumber++) {
+        $tournament->teams()->create([
+            'name' => "Team {$teamNumber}",
+            'tournament_group_id' => $teamNumber === 1 ? $group->id : null,
+        ]);
+    }
+
+    $this->actingAs(User::factory()->admin()->create())
+        ->from(route('admin.tournaments.edit', $tournament))
+        ->post(route('admin.tournaments.groups.generate', $tournament))
+        ->assertSessionHasErrors('group_assignment');
+
+    $this->assertDatabaseCount('tournament_groups', 1);
+    expect($tournament->teams()->where('tournament_group_id', $group->id)->count())->toBe(1);
+});
+
 // Group routes use the same administrator-only access rules as tournament management.
 it('keeps group management restricted to admins', function () {
     $tournament = Tournament::create([
@@ -150,9 +255,12 @@ it('keeps group management restricted to admins', function () {
     ]);
     $group = $tournament->groups()->create(['name' => 'A']);
     $groupRoute = route('admin.tournaments.groups.destroy', ['tournament' => $tournament, 'group' => $group]);
+    $generateRoute = route('admin.tournaments.groups.generate', $tournament);
     $storeRoute = route('admin.tournaments.groups.store', $tournament);
 
     $this->post($storeRoute, ['group_name' => 'Guest group'])
+        ->assertRedirect(route('home'));
+    $this->post($generateRoute)
         ->assertRedirect(route('home'));
     $this->delete($groupRoute)
         ->assertRedirect(route('home'));
@@ -160,6 +268,8 @@ it('keeps group management restricted to admins', function () {
     $member = User::factory()->create();
     $this->actingAs($member)
         ->post($storeRoute, ['group_name' => 'Member group'])
+        ->assertRedirect(route('home'));
+    $this->post($generateRoute)
         ->assertRedirect(route('home'));
     $this->delete($groupRoute)
         ->assertRedirect(route('home'));

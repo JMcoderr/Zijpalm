@@ -13,11 +13,11 @@
                 </li>
                 <li class="rounded-xl border border-zinc-200 border-l-2 border-l-zijpalm-400 bg-white p-4">
                     <h2 class="text-base font-bold text-zijpalm-900">2. Voeg teams toe</h2>
-                    <p class="mt-1">Klik bij je toernooi op <strong>Beheren</strong>. Open <strong>1. Teams en poules</strong>, vul een teamnaam in en klik op <strong>Team toevoegen</strong>. Poules zijn alleen nodig als je een automatisch schema maakt.</p>
+                    <p class="mt-1">Klik bij je toernooi op <strong>Beheren</strong>. Open <strong>1. Teams en poules</strong>, vul een teamnaam in en klik op <strong>Team toevoegen</strong>. Als alle 8, 16, 32 of 64 teams zijn toegevoegd, klik je op <strong>Poule-indeling automatisch maken</strong>. De teams worden verdeeld over poules van vier. Je kunt de poules ook zelf maken.</p>
                 </li>
                 <li class="rounded-xl border border-zinc-200 border-l-2 border-l-zijpalm-400 bg-white p-4">
                     <h2 class="text-base font-bold text-zijpalm-900">3. Plan wedstrijden</h2>
-                    <p class="mt-1">Open <strong>2. Wedstrijden</strong>. Klik op <strong>Wedstrijdschema genereren</strong> of kies <strong>Zelf een wedstrijd toevoegen</strong>.</p>
+                    <p class="mt-1">Open <strong>2. Wedstrijden</strong>. Stel eerst de startdatum in. Klik daarna op <strong>Wedstrijdschema genereren</strong> of kies <strong>Zelf een wedstrijd toevoegen</strong>.</p>
                 </li>
                 <li class="rounded-xl border border-zinc-200 border-l-2 border-l-zijpalm-400 bg-white p-4">
                     <h2 class="text-base font-bold text-zijpalm-900">4. Sla de uitslag op</h2>
@@ -28,7 +28,7 @@
             <details class="mt-4 max-w-3xl overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-950">
                 <summary class="min-h-11 cursor-pointer px-4 py-3 font-bold text-emerald-900">Wedstrijdschema en speeltijden</summary>
                 <div class="border-t border-emerald-200 px-4 py-3">
-                <p class="pb-3"><strong>Automatisch schema:</strong> vul eerst een startdatum in bij <strong>Toernooi-instellingen</strong>. Voeg daarna alle teams toe en zet minstens twee teams in elke poule. Klik vervolgens op <strong>Wedstrijdschema genereren</strong>.</p>
+                <p class="pb-3"><strong>Automatisch schema:</strong> gebruik bij 8, 16, 32 of 64 teams de knop <strong>Poule-indeling automatisch maken</strong>. Bij andere aantallen kun je de poules zelf maken. Vul daarna een startdatum in bij <strong>Toernooi-instellingen</strong> en klik op <strong>Wedstrijdschema genereren</strong>.</p>
                 <p><strong>Speeltijd aanpassen:</strong> open de wedstrijd, wijzig de datum en tijd en klik op <strong>Tijd opslaan</strong>. Voorspellingen blijven staan.</p>
                 </div>
             </details>

@@ -4,12 +4,23 @@ namespace App\Http\Controllers;
 
 use App\Models\Tournament;
 use App\Models\TournamentGroup;
+use App\Services\TournamentGroupAssignmentService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class TournamentGroupController extends Controller
 {
+    public function generate(Tournament $tournament, TournamentGroupAssignmentService $assignmentService): RedirectResponse
+    {
+        $groupCount = $assignmentService->generate($tournament);
+        $teamCountPerGroup = intdiv($tournament->team_count, $groupCount);
+
+        return redirect()
+            ->route('admin.tournaments.edit', $tournament)
+            ->with('success', "Poule-indeling gemaakt: {$groupCount} poules van {$teamCountPerGroup} teams.");
+    }
+
     public function store(Request $request, Tournament $tournament): RedirectResponse
     {
         if ($tournament->matches()->whereNotNull('tournament_group_id')->exists()) {
