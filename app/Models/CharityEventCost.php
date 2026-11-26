@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CharityEventCost extends Model
 {
@@ -23,5 +24,10 @@ class CharityEventCost extends Model
     public function event(): BelongsTo
     {
         return $this->belongsTo(CharityEvent::class, 'charity_event_id');
+    }
+
+    public function requests(): HasMany
+    {
+        return $this->hasMany(CharityRequest::class, 'charity_event_cost_id');
     }
 }
