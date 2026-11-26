@@ -14,4 +14,8 @@ Route::prefix('lief-en-leed')->name('charity.')->controller(CharityMagicLoginCon
     Route::get('aanvragen', [CharityRequestController::class, 'create'])
         ->middleware('charity.session')
         ->name('requests.create');
+
+    Route::post('aanvragen', [CharityRequestController::class, 'store'])
+        ->middleware('charity.session')
+        ->name('requests.store');
 });
