@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\CharityRequestStatus;
 use App\Models\CharityEventCost;
 use App\Models\CharityMember;
 use App\Models\CharityRequest;
@@ -11,10 +12,38 @@ use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class CharityRequestController extends Controller
 {
+    public function index(): View
+    {
+        // Load only the details needed for review; bank data stays out of this page.
+        $requests = CharityRequest::query()
+            ->select([
+                'id',
+                'requester_email',
+                'charity_member_id',
+                'charity_event_cost_id',
+                'status',
+                'created_at',
+            ])
+            ->where('status', CharityRequestStatus::Pending->value)
+            ->with([
+                'member' => static fn ($query) => $query->withTrashed()->select(['id', 'full_name', 'name']),
+                'eventCost:id,charity_event_id,amount',
+                'eventCost.event:id,title',
+            ])
+            ->orderByDesc('created_at')
+            ->paginate(15);
+
+        return view('charity.requests.index', [
+            'requests' => $requests,
+        ]);
+    }
+
     public function create(): View
     {
         $eventCosts = CharityEventCost::query()
@@ -138,5 +167,40 @@ class CharityRequestController extends Controller
         return redirect()
             ->route('charity.requests.create')
             ->with('status', 'Je aanvraag is opgeslagen en wacht op beoordeling.');
+    }
+
+    public function update(Request $request, CharityRequest $charityRequest): RedirectResponse
+    {
+        $validated = $request->validate([
+            'status' => ['required', Rule::in([
+                CharityRequestStatus::Accepted->value,
+                CharityRequestStatus::Rejected->value,
+            ])],
+            'reason' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $status = CharityRequestStatus::from($validated['status']);
+        $reason = $validated['reason'] ?? null;
+
+        $reviewed = DB::transaction(function () use ($charityRequest, $status, $reason): bool {
+            $lockedRequest = CharityRequest::query()
+                ->whereKey($charityRequest->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            return $lockedRequest->review($status, $reason);
+        });
+
+        if (! $reviewed) {
+            return back()->withErrors([
+                'status' => 'Deze aanvraag is al beoordeeld.',
+            ]);
+        }
+
+        return redirect()
+            ->route('charity.requests.review')
+            ->with('status', $status === CharityRequestStatus::Accepted
+                ? 'Aanvraag goedgekeurd.'
+                : 'Aanvraag afgewezen.');
     }
 }

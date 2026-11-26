@@ -46,4 +46,24 @@ class CharityRequest extends Model
     {
         return $this->belongsTo(CharityEventCost::class, 'charity_event_cost_id');
     }
+
+    public function review(CharityRequestStatus $status, ?string $reason = null): bool
+    {
+        if ($this->status !== CharityRequestStatus::Pending
+            || ! in_array($status, [CharityRequestStatus::Accepted, CharityRequestStatus::Rejected], true)
+        ) {
+            return false;
+        }
+
+        $this->status = $status;
+        $this->reason = $status === CharityRequestStatus::Rejected ? $reason : null;
+
+        if ($status === CharityRequestStatus::Rejected) {
+            // Rejected requests will not be paid, so their bank details can be cleared.
+            $this->account_name = null;
+            $this->iban = null;
+        }
+
+        return $this->save();
+    }
 }

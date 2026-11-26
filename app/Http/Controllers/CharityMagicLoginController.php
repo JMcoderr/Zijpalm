@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\CharityMagicLinkMail;
+use App\Models\CharityAdmin;
 use App\Rules\AllowedCharityEmailDomain;
 use App\Services\CharityMagicLinkService;
 use App\Services\CharitySessionService;
@@ -16,8 +17,11 @@ class CharityMagicLoginController extends Controller
 {
     public function show(Request $request, CharitySessionService $charitySession): View
     {
+        $activeEmail = $charitySession->activeEmail($request);
+
         return view('charity.auth.login', [
-            'activeEmail' => $charitySession->activeEmail($request),
+            'activeEmail' => $activeEmail,
+            'isAdmin' => $activeEmail !== null && CharityAdmin::query()->where('employee', $activeEmail)->exists(),
         ]);
     }
 

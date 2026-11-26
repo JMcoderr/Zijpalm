@@ -18,4 +18,12 @@ Route::prefix('lief-en-leed')->name('charity.')->controller(CharityMagicLoginCon
     Route::post('aanvragen', [CharityRequestController::class, 'store'])
         ->middleware('charity.session')
         ->name('requests.store');
+
+    Route::middleware('charity.admin')->group(function () {
+        Route::get('aanvragen/beheer', [CharityRequestController::class, 'index'])
+            ->name('requests.review');
+
+        Route::patch('aanvragen/{charityRequest}/beoordeling', [CharityRequestController::class, 'update'])
+            ->name('requests.review.update');
+    });
 });
