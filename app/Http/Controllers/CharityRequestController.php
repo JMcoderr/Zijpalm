@@ -4,7 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\CharityEventCost;
 use App\Models\CharityMember;
+use App\Models\CharityRequest;
+use App\Rules\ValidIban;
+use App\Services\CharitySessionService;
+use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class CharityRequestController extends Controller
 {
@@ -43,5 +50,93 @@ class CharityRequestController extends Controller
             'eventCosts' => $eventCosts,
             'members' => $members,
         ]);
+    }
+
+    public function store(Request $request, CharitySessionService $charitySession): RedirectResponse
+    {
+        // Use the verified session, not an email supplied by the form.
+        $requesterEmail = $charitySession->activeEmail($request);
+
+        if ($requesterEmail === null) {
+            return redirect()->route('charity.login');
+        }
+
+        $member = null;
+        $eventCost = null;
+
+        $validator = Validator::make($request->all(), [
+            'charity_member_id' => ['required', 'integer'],
+            'charity_event_cost_id' => ['required', 'integer'],
+            'account_name' => ['required', 'string', 'max:100'],
+            'iban' => ['required', 'string', new ValidIban],
+        ], [
+            'charity_member_id.required' => 'Kies een lid.',
+            'charity_event_cost_id.required' => 'Kies een actieve gelegenheid.',
+            'account_name.required' => 'Vul de naam in zoals die bij de bank bekend is.',
+        ]);
+
+        $validator->after(function (ValidatorContract $validator) use (&$member, &$eventCost, $requesterEmail): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $data = $validator->getData();
+            $member = CharityMember::query()
+                ->availableForRequests()
+                ->whereKey($data['charity_member_id'])
+                ->first();
+
+            if ($member === null) {
+                $validator->errors()->add('charity_member_id', 'Kies een lid dat nog beschikbaar is.');
+            }
+
+            $eventCost = CharityEventCost::query()
+                ->active()
+                ->whereKey($data['charity_event_cost_id'])
+                ->first();
+
+            if ($eventCost === null) {
+                $validator->errors()->add('charity_event_cost_id', 'Deze gelegenheid is niet meer actief.');
+            }
+
+            $memberEmail = $member?->email;
+
+            if (is_string($memberEmail) && strcasecmp(trim($memberEmail), trim($requesterEmail)) === 0) {
+                $matchingMembers = CharityMember::query()
+                    ->availableForRequests()
+                    ->whereRaw('LOWER(TRIM(email)) = ?', [strtolower(trim($memberEmail))])
+                    ->count();
+
+                if ($matchingMembers === 1) {
+                    $validator->errors()->add('charity_member_id', 'Je kunt geen aanvraag voor jezelf indienen.');
+                }
+            }
+        });
+
+        if ($validator->fails()) {
+            // Keep bank details out of flashed input; they do not belong in session data.
+            return back()
+                ->withErrors($validator)
+                ->withInput($request->only(['charity_member_id', 'charity_event_cost_id']));
+        }
+
+        if ($member === null || $eventCost === null) {
+            throw new \LogicException('Validated request choices were not loaded.');
+        }
+
+        $validated = $validator->validated();
+        $iban = strtoupper((string) preg_replace('/\s+/', '', $validated['iban']));
+
+        CharityRequest::query()->create([
+            'requester_email' => $requesterEmail,
+            'charity_member_id' => $member->id,
+            'charity_event_cost_id' => $eventCost->id,
+            'account_name' => trim($validated['account_name']),
+            'iban' => $iban,
+        ]);
+
+        return redirect()
+            ->route('charity.requests.create')
+            ->with('status', 'Je aanvraag is opgeslagen en wacht op beoordeling.');
     }
 }
