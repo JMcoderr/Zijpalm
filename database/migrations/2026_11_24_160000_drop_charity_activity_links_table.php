@@ -2,12 +2,18 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
+        // The new event model cannot reconstruct these links from activity titles.
+        if (Schema::hasTable('charity_activity_links') && DB::table('charity_activity_links')->exists()) {
+            throw new RuntimeException('Cannot drop charity activity links while they contain data. Back up and reconcile the links before retrying.');
+        }
+
         Schema::dropIfExists('charity_activity_links');
     }
 
