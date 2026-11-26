@@ -13,6 +13,11 @@
                 <flux:button variant="primary" :href="route('charity.requests.create')" class="w-full">
                     Nieuwe aanvraag
                 </flux:button>
+                @if ($isAdmin)
+                    <flux:button variant="filled" :href="route('charity.requests.review')" class="w-full">
+                        Aanvragen beoordelen
+                    </flux:button>
+                @endif
                 <form method="POST" action="{{ route('charity.logout') }}">
                     @csrf
                     <flux:button type="submit" variant="filled">Uitloggen bij Lief & Leed</flux:button>
