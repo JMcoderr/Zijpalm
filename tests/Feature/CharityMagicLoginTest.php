@@ -2,6 +2,7 @@
 
 use App\Mail\CharityMagicLinkMail;
 use App\Models\User;
+use App\Services\CharityMagicLinkService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -86,8 +87,14 @@ it('creates an independent session and rejects replayed or modified links', func
 
     $this->get($tamperedUrl)->assertForbidden();
 
-    $now = now()->timestamp;
     $this->get($sentMail->url)
+        ->assertOk()
+        ->assertSee('Bevestig dat je wilt inloggen.')
+        ->assertHeader('Referrer-Policy', 'no-referrer')
+        ->assertSessionMissing('charity_magic');
+
+    $now = now()->timestamp;
+    $this->post($sentMail->url)
         ->assertRedirect(route('charity.login'))
         ->assertSessionHas('charity_magic.email', 'employee@example.test');
 
@@ -96,7 +103,35 @@ it('creates an independent session and rejects replayed or modified links', func
     expect($expiresAt)->toBeGreaterThan($now)
         ->toBeLessThanOrEqual($now + 24 * 60 * 60);
     $this->assertGuest('web');
-    $this->get($sentMail->url)->assertForbidden();
+    $this->post($sentMail->url)->assertForbidden();
+});
+
+it('does not let the request limit block a valid confirmation', function () {
+    Mail::fake();
+
+    foreach (range(1, 4) as $attempt) {
+        $this->post(route('charity.magic.send'), ['email' => 'employee@example.test'])->assertRedirect();
+    }
+
+    $this->post(route('charity.magic.send'), ['email' => 'employee@example.test'])->assertTooManyRequests();
+
+    $url = Mail::sent(CharityMagicLinkMail::class)->last()->url;
+    $this->get($url)->assertOk();
+    $this->post($url)->assertSessionHas('charity_magic.email', 'employee@example.test');
+});
+
+it('rejects links and clears existing sessions when their domain is removed', function () {
+    $service = app(CharityMagicLinkService::class);
+    $email = 'employee@example.test';
+    $url = $service->createSignedUrl($email, $service->issueToken($email));
+
+    config(['services.charity_magic_links.allowed_domains' => []]);
+    $this->post($url)->assertForbidden()->assertSessionMissing('charity_magic');
+
+    $this->withSession(['charity_magic' => ['email' => $email, 'expires_at' => now()->addHour()->timestamp]])
+        ->get(route('charity.login'))
+        ->assertOk()
+        ->assertSessionMissing('charity_magic');
 });
 
 it('logs out of Lief & Leed without logging out of Zijpalm', function () {
