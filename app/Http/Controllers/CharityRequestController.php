@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\CharityRequestStatus;
+use App\Mail\CharityRequestReviewedMail;
 use App\Models\CharityEventCost;
 use App\Models\CharityMember;
 use App\Models\CharityRequest;
@@ -13,6 +14,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
@@ -196,6 +198,12 @@ class CharityRequestController extends Controller
                 'status' => 'Deze aanvraag is al beoordeeld.',
             ]);
         }
+
+        // Notify the requester only after the review decision has been committed.
+        Mail::to($charityRequest->requester_email)->send(new CharityRequestReviewedMail(
+            approved: $status === CharityRequestStatus::Accepted,
+            reason: $reason,
+        ));
 
         return redirect()
             ->route('charity.requests.review')

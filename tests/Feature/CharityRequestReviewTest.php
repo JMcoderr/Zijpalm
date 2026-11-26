@@ -1,18 +1,21 @@
 <?php
 
 use App\CharityRequestStatus;
+use App\Mail\CharityRequestReviewedMail;
 use App\Models\CharityAdmin;
 use App\Models\CharityEvent;
 use App\Models\CharityEventCost;
 use App\Models\CharityMember;
 use App\Models\CharityRequest;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
     config(['app.key' => 'base64:'.base64_encode(str_repeat('a', 32))]);
     config(['services.charity_magic_links.allowed_domains' => ['example.test']]);
+    Mail::fake();
 
     $event = CharityEvent::create([
         'title' => 'Support event',
@@ -56,6 +59,8 @@ it('requires an active charity admin to open the review list', function () {
     $this->withSession(charityReviewSession())
         ->get(route('charity.requests.review'))
         ->assertForbidden();
+
+    Mail::assertNothingSent();
 });
 
 it('shows only pending requests and leaves private member and bank details off the page', function () {
@@ -116,6 +121,19 @@ it('allows an admin to accept a pending request', function () {
     expect($this->request->fresh()->status)->toBe(CharityRequestStatus::Accepted)
         ->and($this->request->fresh()->iban)->toBe('NL91ABNA0417164300')
         ->and($this->request->fresh()->account_name)->toBe('Private Account');
+
+    Mail::assertSent(CharityRequestReviewedMail::class, function (CharityRequestReviewedMail $mail): bool {
+        if (! $mail->hasTo('employee@example.test') || ! $mail->approved) {
+            return false;
+        }
+
+        $body = $mail->render();
+
+        return str_contains($body, 'is goedgekeurd')
+            && ! str_contains($body, 'NL91ABNA0417164300')
+            && ! str_contains($body, 'Private Account');
+    });
+    Mail::assertSentCount(1);
 });
 
 it('rejects a pending request and clears its bank details', function () {
@@ -135,6 +153,19 @@ it('rejects a pending request and clears its bank details', function () {
         ->and($reviewedRequest->reason)->toBe('De aanvraag voldoet niet aan de voorwaarden.')
         ->and($reviewedRequest->iban)->toBeNull()
         ->and($reviewedRequest->account_name)->toBeNull();
+
+    Mail::assertSent(CharityRequestReviewedMail::class, function (CharityRequestReviewedMail $mail): bool {
+        if (! $mail->hasTo('employee@example.test') || $mail->approved) {
+            return false;
+        }
+
+        $body = $mail->render();
+
+        return str_contains($body, 'De aanvraag voldoet niet aan de voorwaarden.')
+            && ! str_contains($body, 'NL91ABNA0417164300')
+            && ! str_contains($body, 'Private Account');
+    });
+    Mail::assertSentCount(1);
 });
 
 it('does not allow unsupported or repeated review decisions', function () {
@@ -159,4 +190,5 @@ it('does not allow unsupported or repeated review decisions', function () {
         ->assertSessionHasErrors('status');
 
     expect($this->request->fresh()->status)->toBe(CharityRequestStatus::Accepted);
+    Mail::assertSentCount(1);
 });
