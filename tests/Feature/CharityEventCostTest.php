@@ -82,3 +82,15 @@ it('prevents deleting an event while its cost history exists', function () {
 
     expect(fn () => $event->delete())->toThrow(QueryException::class);
 });
+
+it('keeps events and cost history when rolling back would remove data', function () {
+    $events = require database_path('migrations/2026_11_24_160100_create_charity_events_table.php');
+    $costs = require database_path('migrations/2026_11_24_160200_create_charity_event_costs_table.php');
+    $event = CharityEvent::create(['title' => 'Event to keep']);
+    $cost = $event->eventCosts()->create(['amount' => '12.50', 'start_date' => '2026-01-01 00:00:00']);
+
+    expect(fn () => $costs->down())->toThrow(RuntimeException::class, 'Cannot roll back charity event costs');
+    expect(fn () => $events->down())->toThrow(RuntimeException::class, 'Cannot roll back charity events');
+    $this->assertModelExists($event);
+    $this->assertModelExists($cost);
+});

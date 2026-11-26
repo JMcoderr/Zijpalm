@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -19,6 +20,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (Schema::hasTable('charity_events') && DB::table('charity_events')->exists()) {
+            throw new RuntimeException('Cannot roll back charity events while they contain data.');
+        }
+
         Schema::dropIfExists('charity_events');
     }
 };
