@@ -2,6 +2,9 @@
 
 use App\Http\Middleware\Auth\CheckIfAdmin;
 use App\Http\Middleware\Auth\CheckIfAdminOrSelf;
+use App\Http\Middleware\Auth\EnsureCharityAdmin;
+use App\Http\Middleware\Auth\EnsureCharitySession;
+use App\Http\Middleware\Auth\EnsureCharitySuperAdmin;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -18,7 +21,10 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin' => CheckIfAdmin::class,
-            'admin_or_self' => CheckIfAdminOrSelf::class
+            'admin_or_self' => CheckIfAdminOrSelf::class,
+            'charity.session' => EnsureCharitySession::class,
+            'charity.admin' => EnsureCharityAdmin::class,
+            'charity.super' => EnsureCharitySuperAdmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
