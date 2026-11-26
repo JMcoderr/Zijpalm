@@ -317,6 +317,7 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->controller(AdminC
 );
 
 require __DIR__.'/auth.php';
+require __DIR__.'/charity.php';
 
 // Route::get('/', function(){return view('home');})->name('home');
 

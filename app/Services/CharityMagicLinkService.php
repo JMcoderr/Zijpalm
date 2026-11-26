@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\URL;
 
 class CharityMagicLinkService
 {
@@ -22,6 +23,18 @@ class CharityMagicLinkService
         );
 
         return $token;
+    }
+
+    public function createSignedUrl(string $email, string $token): string
+    {
+        return URL::temporarySignedRoute(
+            'charity.magic.verify',
+            now()->addMinutes(self::TOKEN_TTL_MINUTES),
+            [
+                'email' => $this->normalizeEmail($email),
+                'token' => $token,
+            ],
+        );
     }
 
     /**

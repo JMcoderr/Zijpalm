@@ -1,6 +1,6 @@
 <?php
-// This config file keeps the settings for this part of the app.
 
+// This config file keeps the settings for this part of the app.
 
 return [
 
@@ -35,6 +35,13 @@ return [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
+    ],
+
+    'charity_magic_links' => [
+        'allowed_domains' => array_values(array_filter(array_map(
+            static fn (string $domain): string => mb_strtolower(trim($domain)),
+            explode(',', (string) env('CHARITY_ALLOWED_EMAIL_DOMAINS', '')),
+        ))),
     ],
 
     'mailjet' => [
