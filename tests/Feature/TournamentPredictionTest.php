@@ -498,6 +498,36 @@ it('closes prediction changes at kickoff', function () {
     $this->assertDatabaseCount('tournament_predictions', 0);
 });
 
+it('does not save a prediction when kickoff passes before the write', function () {
+    $tournament = Tournament::create(['name' => 'Kickoff Write Cup', 'team_count' => 4]);
+    $match = $tournament->matches()->create([
+        'home_team_id' => $tournament->teams()->create(['name' => 'Home'])->id,
+        'away_team_id' => $tournament->teams()->create(['name' => 'Away'])->id,
+        'match_number' => 1,
+        'kickoff' => now()->addHour(),
+    ]);
+    $member = User::factory()->create();
+    $tournament->participants()->create(['user_id' => $member->id]);
+
+    // Let kickoff pass on the fresh read, after the route has loaded the match.
+    $reads = 0;
+    \App\Models\TournamentMatch::retrieved(function ($loadedMatch) use ($match, &$reads) {
+        if ($loadedMatch->is($match) && ++$reads === 2) {
+            $this->travelTo($match->kickoff);
+        }
+    });
+
+    $this->actingAs($member)
+        ->put(route('football-pool.matches.predictions.store', [$tournament, $match]), [
+            'predicted_home_score_'.$match->id => 2,
+            'predicted_away_score_'.$match->id => 1,
+        ])
+        ->assertRedirect(route('football-pool.matches', $tournament))
+        ->assertSessionHas('error', 'De deadline voor deze voorspelling is verstreken.');
+
+    $this->assertDatabaseCount('tournament_predictions', 0);
+});
+
 // Group predictions stay open after the tournament starts, until that match's kickoff.
 it('keeps group predictions open until kickoff when the tournament starts first', function () {
     $start = now()->addHour();

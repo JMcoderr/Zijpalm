@@ -96,14 +96,38 @@ class TournamentPredictionController extends Controller
             $penaltyWinner = null;
         }
 
-        $participant->predictions()->updateOrCreate(
-            ['match_id' => $match->id],
-            [
-                'home_score' => $homeScore,
-                'away_score' => $awayScore,
-                'penalty_winner' => $penaltyWinner,
-            ],
-        );
+        $error = DB::transaction(function () use ($tournament, $match, $participant, $homeScore, $awayScore, $penaltyWinner): ?string {
+            // Use the same match lock as result entry so scoring cannot miss a prediction that was just saved.
+            $lockedMatch = $tournament->matches()
+                ->whereKey($match->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($lockedMatch->home_team_id === null || $lockedMatch->away_team_id === null) {
+                return 'Je kunt pas voorspellen als beide teams bekend zijn.';
+            }
+
+            if (! $lockedMatch->predictionDeadline()->isFuture() || $lockedMatch->result_finalized) {
+                return 'De deadline voor deze voorspelling is verstreken.';
+            }
+
+            $participant->predictions()->updateOrCreate(
+                ['match_id' => $lockedMatch->id],
+                [
+                    'home_score' => $homeScore,
+                    'away_score' => $awayScore,
+                    'penalty_winner' => $penaltyWinner,
+                ],
+            );
+
+            return null;
+        });
+
+        if ($error !== null) {
+            return redirect()
+                ->route('football-pool.matches', $tournament)
+                ->with('error', $error);
+        }
 
         return redirect()
             ->route('football-pool.matches', $tournament)
