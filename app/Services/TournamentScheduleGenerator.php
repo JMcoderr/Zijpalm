@@ -115,6 +115,7 @@ class TournamentScheduleGenerator
     private function buildRounds(array $teamIds): array
     {
         if (count($teamIds) % 2 !== 0) {
+            // The null slot lets one team sit out without changing the rotation.
             $teamIds[] = null;
         }
 

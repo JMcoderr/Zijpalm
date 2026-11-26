@@ -39,6 +39,7 @@ class SendTournamentResultReminders extends Command
         Mail::to($recipient, config('mail.bestuur.name'))
             ->send(new TournamentResultReminder($matches));
 
+        // Save the reminder time after mail succeeds so a failed send can be tried again.
         TournamentMatch::query()
             ->whereKey($matches->modelKeys())
             ->whereNull('result_reminder_sent_at')

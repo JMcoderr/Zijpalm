@@ -20,6 +20,7 @@ class CharityRequestController extends Controller
                 'title' => $eventCost->event->title,
             ]);
 
+        // Keep contact and milestone details server-side; the page only needs a name and ID.
         $members = CharityMember::query()
             ->availableForRequests()
             ->orderBy('full_name')

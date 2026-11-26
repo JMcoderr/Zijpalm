@@ -73,6 +73,7 @@ class TournamentBracketGenerator
                 ]);
             }
 
+            // Only locked group results are used, so the standings cannot change after bracket creation.
             $rankedTeams = [];
 
             foreach ($groups as $group) {
@@ -81,6 +82,7 @@ class TournamentBracketGenerator
 
             $pairings = [];
 
+            // Winners face runners-up from another group in the opening round.
             for ($index = 0; $index < $groupCount; $index += 2) {
                 $firstGroup = $groups[$index];
                 $secondGroup = $groups[$index + 1];
@@ -206,6 +208,7 @@ class TournamentBracketGenerator
 
         return $standings
             ->sort(function (array $left, array $right): int {
+                // Use points, goal difference, goals scored, then name to settle ties.
                 $points = $right['points'] <=> $left['points'];
                 $goalDifference = ($right['goals_for'] - $right['goals_against'])
                     <=> ($left['goals_for'] - $left['goals_against']);

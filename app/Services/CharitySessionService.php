@@ -10,6 +10,7 @@ class CharitySessionService
 {
     public function activeEmail(Request $request): ?string
     {
+        // Recheck the domain and expiry on every protected page.
         $charitySession = $request->session()->get('charity_magic');
 
         if (
