@@ -1,12 +1,28 @@
 <?php
 
+use App\Models\Activity;
 use App\Models\CharityEvent;
 use App\Models\CharityEventCost;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 uses(RefreshDatabase::class);
+
+it('keeps existing activity links when the old table cannot be safely dropped', function () {
+    $migration = require database_path('migrations/2026_11_24_160000_drop_charity_activity_links_table.php');
+    $migration->down();
+
+    $link = [
+        'source_event_id' => 1200,
+        'activity_id' => Activity::factory()->create()->id,
+    ];
+    DB::table('charity_activity_links')->insert($link);
+
+    expect(fn () => $migration->up())->toThrow(RuntimeException::class, 'Cannot drop charity activity links');
+    $this->assertDatabaseHas('charity_activity_links', $link);
+});
 
 it('keeps Lief and Leed events and cost periods separate from Zijpalm activities', function () {
     $event = CharityEvent::create([
