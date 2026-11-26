@@ -10,6 +10,9 @@
         @if ($activeEmail)
             <div class="space-y-4 text-center">
                 <p>Je bent ingelogd voor Lief & Leed als <strong>{{ $activeEmail }}</strong>.</p>
+                <flux:button variant="primary" :href="route('charity.requests.create')" class="w-full">
+                    Nieuwe aanvraag
+                </flux:button>
                 <form method="POST" action="{{ route('charity.logout') }}">
                     @csrf
                     <flux:button type="submit" variant="filled">Uitloggen bij Lief & Leed</flux:button>
