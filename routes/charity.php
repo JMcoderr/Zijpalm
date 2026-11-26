@@ -26,4 +26,8 @@ Route::prefix('lief-en-leed')->name('charity.')->controller(CharityMagicLoginCon
         Route::patch('aanvragen/{charityRequest}/beoordeling', [CharityRequestController::class, 'update'])
             ->name('requests.review.update');
     });
+
+    Route::get('aanvragen/betaaloverzicht', [CharityRequestController::class, 'paymentOverview'])
+        ->middleware('charity.super')
+        ->name('requests.payment-overview');
 });

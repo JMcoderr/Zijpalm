@@ -18,6 +18,11 @@
                         Aanvragen beoordelen
                     </flux:button>
                 @endif
+                @if ($isSuperAdmin)
+                    <flux:button variant="filled" :href="route('charity.requests.payment-overview')" class="w-full">
+                        Betaaloverzicht
+                    </flux:button>
+                @endif
                 <form method="POST" action="{{ route('charity.logout') }}">
                     @csrf
                     <flux:button type="submit" variant="filled">Uitloggen bij Lief & Leed</flux:button>

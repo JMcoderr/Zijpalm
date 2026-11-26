@@ -18,10 +18,14 @@ class CharityMagicLoginController extends Controller
     public function show(Request $request, CharitySessionService $charitySession): View
     {
         $activeEmail = $charitySession->activeEmail($request);
+        $admin = $activeEmail === null
+            ? null
+            : CharityAdmin::query()->where('employee', $activeEmail)->first();
 
         return view('charity.auth.login', [
             'activeEmail' => $activeEmail,
-            'isAdmin' => $activeEmail !== null && CharityAdmin::query()->where('employee', $activeEmail)->exists(),
+            'isAdmin' => $admin !== null,
+            'isSuperAdmin' => $admin?->hasSuperAccess() ?? false,
         ]);
     }
 

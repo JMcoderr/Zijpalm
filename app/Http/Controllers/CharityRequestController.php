@@ -13,6 +13,7 @@ use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
@@ -44,6 +45,34 @@ class CharityRequestController extends Controller
         return view('charity.requests.index', [
             'requests' => $requests,
         ]);
+    }
+
+    public function paymentOverview(): Response
+    {
+        // Bank details are only loaded for the superadmin-only payment overview.
+        $requests = CharityRequest::query()
+            ->select([
+                'id',
+                'account_name',
+                'iban',
+                'charity_member_id',
+                'charity_event_cost_id',
+                'created_at',
+            ])
+            ->where('status', CharityRequestStatus::Accepted->value)
+            ->with([
+                'member' => static fn ($query) => $query->withTrashed()->select(['id', 'full_name', 'name']),
+                'eventCost:id,charity_event_id,amount',
+                'eventCost.event:id,title',
+            ])
+            ->orderBy('created_at')
+            ->paginate(15);
+
+        return response()
+            ->view('charity.requests.payment-overview', [
+                'requests' => $requests,
+            ])
+            ->header('Cache-Control', 'no-store, private');
     }
 
     public function create(): View
