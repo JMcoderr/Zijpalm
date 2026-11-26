@@ -5,19 +5,19 @@ namespace App\Http\Controllers;
 use App\Mail\CharityMagicLinkMail;
 use App\Rules\AllowedCharityEmailDomain;
 use App\Services\CharityMagicLinkService;
+use App\Services\CharitySessionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 
 class CharityMagicLoginController extends Controller
 {
-    public function show(Request $request): View
+    public function show(Request $request, CharitySessionService $charitySession): View
     {
         return view('charity.auth.login', [
-            'activeEmail' => $this->activeEmail($request),
+            'activeEmail' => $charitySession->activeEmail($request),
         ]);
     }
 
@@ -43,12 +43,15 @@ class CharityMagicLoginController extends Controller
             ->with('status', 'Als het e-mailadres is toegestaan, hebben we een inloglink verstuurd.');
     }
 
-    public function verify(Request $request, CharityMagicLinkService $magicLink): RedirectResponse
-    {
+    public function verify(
+        Request $request,
+        CharityMagicLinkService $magicLink,
+        CharitySessionService $charitySession,
+    ): RedirectResponse {
         $email = $request->query('email');
         $token = $request->query('token');
 
-        if (! is_string($email) || ! is_string($token) || ! $this->allowedEmail($email) || ! $magicLink->consumeToken($email, $token)) {
+        if (! is_string($email) || ! is_string($token) || ! $charitySession->isAllowedEmail($email) || ! $magicLink->consumeToken($email, $token)) {
             abort(403, 'Deze inloglink is ongeldig of verlopen.');
         }
 
@@ -81,31 +84,5 @@ class CharityMagicLoginController extends Controller
         return redirect()
             ->route('charity.login')
             ->with('status', 'Je bent uitgelogd bij Lief & Leed.');
-    }
-
-    private function activeEmail(Request $request): ?string
-    {
-        $charitySession = $request->session()->get('charity_magic');
-
-        if (
-            ! is_array($charitySession)
-            || ! is_string($charitySession['email'] ?? null)
-            || ! $this->allowedEmail($charitySession['email'])
-            || ! is_numeric($charitySession['expires_at'] ?? null)
-            || (int) $charitySession['expires_at'] <= now()->timestamp
-        ) {
-            $request->session()->forget('charity_magic');
-
-            return null;
-        }
-
-        return $charitySession['email'];
-    }
-
-    private function allowedEmail(string $email): bool
-    {
-        return Validator::make(['email' => $email], [
-            'email' => ['required', new AllowedCharityEmailDomain],
-        ])->passes();
     }
 }
