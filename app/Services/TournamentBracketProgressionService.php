@@ -27,6 +27,7 @@ class TournamentBracketProgressionService
         }
 
         $winnerTeamId = $winnerSide === 'home' ? $match->home_team_id : $match->away_team_id;
+        // Later-round source IDs identify which side receives this winner.
         $nextMatches = TournamentMatch::query()
             ->where('tournament_id', $match->tournament_id)
             ->where(function ($query) use ($match) {

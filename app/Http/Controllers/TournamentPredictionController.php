@@ -107,6 +107,7 @@ class TournamentPredictionController extends Controller
                 return 'Je kunt pas voorspellen als beide teams bekend zijn.';
             }
 
+            // Recheck under the lock; kickoff might pass after the first check.
             if (! $lockedMatch->predictionDeadline()->isFuture() || $lockedMatch->result_finalized) {
                 return 'De deadline voor deze voorspelling is verstreken.';
             }

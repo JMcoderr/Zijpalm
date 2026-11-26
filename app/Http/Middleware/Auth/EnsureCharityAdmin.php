@@ -25,6 +25,7 @@ class EnsureCharityAdmin
             return redirect()->route('charity.login');
         }
 
+        // Check the current admin record so removed access stops immediately.
         if (! CharityAdminRecord::query()->where('employee', $email)->exists()) {
             abort(403);
         }
