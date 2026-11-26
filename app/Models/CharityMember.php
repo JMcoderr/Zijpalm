@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class CharityMember extends Model
@@ -31,4 +32,9 @@ class CharityMember extends Model
         'dob' => 'immutable_date',
         'years_of_service' => 'immutable_date',
     ];
+
+    public function requests(): HasMany
+    {
+        return $this->hasMany(CharityRequest::class, 'charity_member_id');
+    }
 }
