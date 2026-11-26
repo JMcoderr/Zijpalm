@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -20,6 +21,18 @@ class CharityEventCost extends Model
         'start_date' => 'datetime',
         'end_date' => 'datetime',
     ];
+
+    public function scopeActive(Builder $query): Builder
+    {
+        $now = now();
+
+        return $query
+            ->where('start_date', '<=', $now)
+            ->where(function (Builder $query) use ($now) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', $now);
+            });
+    }
 
     public function event(): BelongsTo
     {

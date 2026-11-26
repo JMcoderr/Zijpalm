@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CharityMagicLoginController;
+use App\Http\Controllers\CharityRequestController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('lief-en-leed')->name('charity.')->controller(CharityMagicLoginController::class)->group(function () {
@@ -9,4 +10,8 @@ Route::prefix('lief-en-leed')->name('charity.')->controller(CharityMagicLoginCon
     Route::get('magic-login', 'confirm')->middleware(['throttle:10,1,charity-preview:', 'signed'])->name('magic.verify');
     Route::post('magic-login', 'verify')->middleware(['throttle:10,1,charity-verify:', 'signed']);
     Route::post('logout', 'logout')->name('logout');
+
+    Route::get('aanvragen', [CharityRequestController::class, 'create'])
+        ->middleware('charity.session')
+        ->name('requests.create');
 });
