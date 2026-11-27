@@ -77,30 +77,31 @@ class CharityRequestController extends Controller
 
         $recipientDetailsRule = new ValidIban;
         $requestsWithValidRecipientAndAmountCount = 0;
+        $paymentReadyTotalInCents = 0;
 
         // Check encrypted IBANs after decryption and load event costs a batch at a time.
         (clone $acceptedRequests)
             ->select(['id', 'account_name', 'iban', 'charity_event_cost_id'])
             ->with('eventCost:id,amount')
-            ->chunkById(100, function ($requests) use ($recipientDetailsRule, &$requestsWithValidRecipientAndAmountCount): void {
+            ->chunkById(100, function ($requests) use (
+                $recipientDetailsRule,
+                &$requestsWithValidRecipientAndAmountCount,
+                &$paymentReadyTotalInCents,
+            ): void {
                 foreach ($requests as $charityRequest) {
-                    $amount = $charityRequest->eventCost?->amount;
+                    $amountInCents = $this->amountToCents($charityRequest->eventCost?->amount);
 
                     if (
                         is_string($charityRequest->account_name)
                         && trim($charityRequest->account_name) !== ''
                         && $recipientDetailsRule->isValid($charityRequest->iban)
-                        && is_numeric($amount)
-                        && (float) $amount > 0
+                        && $amountInCents !== null
                     ) {
                         $requestsWithValidRecipientAndAmountCount++;
+                        $paymentReadyTotalInCents += $amountInCents;
                     }
                 }
             });
-
-        $acceptedTotal = (clone $acceptedRequests)
-            ->join('charity_event_costs', 'charity_requests.charity_event_cost_id', '=', 'charity_event_costs.id')
-            ->sum('charity_event_costs.amount');
 
         return response()
             ->view('charity.requests.payment-overview', [
@@ -108,12 +109,31 @@ class CharityRequestController extends Controller
                 'acceptedRequestCount' => $acceptedRequestCount,
                 'requestsWithValidRecipientAndAmountCount' => $requestsWithValidRecipientAndAmountCount,
                 'requestsWithIncompletePaymentDetailsCount' => $acceptedRequestCount - $requestsWithValidRecipientAndAmountCount,
-                'acceptedTotal' => $acceptedTotal,
+                'paymentReadyTotal' => number_format($paymentReadyTotalInCents / 100, 2, ',', '.'),
                 'hasPaymentDebtorDetails' => $request->session()->has(
                     CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY
                 ),
             ])
             ->header('Cache-Control', 'no-store, private');
+    }
+
+    private function amountToCents(mixed $amount): ?int
+    {
+        if ((! is_string($amount) && ! is_int($amount) && ! is_float($amount))
+            || ! preg_match('/\A[0-9]+(?:\.[0-9]{1,2})?\z/', (string) $amount)) {
+            return null;
+        }
+
+        [$whole, $fraction] = array_pad(explode('.', (string) $amount, 2), 2, '');
+        $whole = ltrim($whole, '0') ?: '0';
+
+        if (strlen($whole) > 11) {
+            return null;
+        }
+
+        $amountInCents = ((int) $whole * 100) + (int) str_pad($fraction, 2, '0');
+
+        return $amountInCents > 0 ? $amountInCents : null;
     }
 
     public function storePaymentDebtorDetails(Request $request): RedirectResponse

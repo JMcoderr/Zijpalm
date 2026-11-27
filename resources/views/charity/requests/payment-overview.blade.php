@@ -95,7 +95,7 @@
                 Ontvangergegevens ontbreken of bedrag ongeldig: {{ $requestsWithIncompletePaymentDetailsCount }}
             </p>
             <p class="text-sm text-zinc-700">
-                Totaalbedrag: &euro; {{ number_format((float) $acceptedTotal, 2, ',', '.') }}
+                Totaal van complete betalingen: &euro; {{ $paymentReadyTotal }}
             </p>
             @if ($requestsWithIncompletePaymentDetailsCount > 0)
                 <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900" role="alert">

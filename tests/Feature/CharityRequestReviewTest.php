@@ -297,6 +297,42 @@ it('flags accepted requests with incomplete payment details before export', func
         ->and($negativeAmountRequest->fresh()->status)->toBe(CharityRequestStatus::Accepted);
 });
 
+it('totals only accepted requests with complete positive payment details', function () {
+    $superadmin = CharityAdmin::create(['employee' => 'super@example.test']);
+    $superadmin->super = now();
+    $superadmin->save();
+
+    foreach ([
+        ['amount' => '11.25', 'account_name' => 'First Payee', 'iban' => 'BE68539007547034'],
+        ['amount' => '20.30', 'account_name' => 'Second Payee', 'iban' => 'GB82WEST12345698765432'],
+        ['amount' => '90.00', 'account_name' => 'Invalid IBAN Payee', 'iban' => 'NL00ABNA0417164300'],
+    ] as $payment) {
+        $eventCost = CharityEventCost::create([
+            'charity_event_id' => $this->eventCost->charity_event_id,
+            'amount' => $payment['amount'],
+            'start_date' => '2026-01-01 00:00:00',
+        ]);
+
+        $request = CharityRequest::create([
+            'requester_email' => 'payment@example.test',
+            'charity_member_id' => $this->member->id,
+            'charity_event_cost_id' => $eventCost->id,
+            'account_name' => $payment['account_name'],
+            'iban' => $payment['iban'],
+        ]);
+        $request->forceFill(['status' => CharityRequestStatus::Accepted])->save();
+    }
+
+    $this->withSession(charityReviewSession('super@example.test'))
+        ->get(route('charity.requests.payment-overview'))
+        ->assertOk()
+        ->assertSeeText('Aantal goedgekeurd: 3')
+        ->assertSeeText('Ontvangergegevens en bedrag geldig: 2')
+        ->assertSeeText('Ontvangergegevens ontbreken of bedrag ongeldig: 1')
+        ->assertSeeText('Totaal van complete betalingen:')
+        ->assertSee('31,55');
+});
+
 it('stores validated debtor details encrypted in the superadmin session', function () {
     $superadmin = CharityAdmin::create(['employee' => 'super@example.test']);
     $superadmin->super = now();
