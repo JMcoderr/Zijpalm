@@ -88,6 +88,7 @@ it('shows active choices and only the member details needed for selection', func
         ->assertDontSee('1985-04-12')
         ->assertSee(route('charity.requests.store'))
         ->assertSee('name="iban"', false)
+        ->assertSee('maxlength="70"', false)
         ->assertSee('name="account_name"', false);
 });
 
@@ -173,6 +174,52 @@ it('rejects an invalid iban without flashing bank details back to the session', 
         ->not->toHaveKey('iban')
         ->not->toHaveKey('account_name')
         ->and(CharityRequest::query()->count())->toBe(0);
+});
+
+it('allows names up to the SEPA limit and rejects longer names without flashing bank details', function () {
+    $event = CharityEvent::create(['title' => 'Active occasion']);
+    $eventCost = CharityEventCost::create([
+        'charity_event_id' => $event->id,
+        'amount' => '100.00',
+        'start_date' => now()->subDay(),
+    ]);
+    $member = CharityMember::create([
+        'email' => 'recipient@example.test',
+        'full_name' => 'Current Member',
+    ]);
+
+    $session = [
+        'charity_magic' => [
+            'email' => 'employee@example.test',
+            'expires_at' => now()->addHour()->timestamp,
+        ],
+    ];
+    $validName = str_repeat('A', 70);
+
+    $this->withSession($session)->post(route('charity.requests.store'), [
+        'charity_member_id' => $member->id,
+        'charity_event_cost_id' => $eventCost->id,
+        'account_name' => $validName,
+        'iban' => 'NL91ABNA0417164300',
+    ])
+        ->assertRedirect(route('charity.requests.create'))
+        ->assertSessionHas('status', 'Je aanvraag is opgeslagen en wacht op beoordeling.');
+
+    expect(CharityRequest::query()->sole()->account_name)->toBe($validName);
+
+    $this->withSession($session)->post(route('charity.requests.store'), [
+        'charity_member_id' => $member->id,
+        'charity_event_cost_id' => $eventCost->id,
+        'account_name' => str_repeat('A', 71),
+        'iban' => 'NL91ABNA0417164300',
+    ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('account_name');
+
+    expect(session()->getOldInput())
+        ->not->toHaveKey('account_name')
+        ->not->toHaveKey('iban')
+        ->and(CharityRequest::query()->count())->toBe(1);
 });
 
 it('rejects unavailable members and inactive event costs', function () {

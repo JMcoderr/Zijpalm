@@ -24,6 +24,9 @@ use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
 class CharityRequestController extends Controller
 {
+    // SEPA XML allows a maximum of 70 characters for a party name.
+    private const MAX_SEPA_PARTY_NAME_LENGTH = 70;
+
     public function index(): View
     {
         // Load only the details needed for review; bank data stays out of this page.
@@ -121,8 +124,16 @@ class CharityRequestController extends Controller
 
     private function hasCompletePaymentDetails(CharityRequest $charityRequest, ValidIban $recipientDetailsRule): bool
     {
-        return is_string($charityRequest->account_name)
-            && trim($charityRequest->account_name) !== ''
+        $accountName = $charityRequest->account_name;
+
+        if (! is_string($accountName)) {
+            return false;
+        }
+
+        $accountName = trim($accountName);
+
+        return $accountName !== ''
+            && mb_strlen($accountName, 'UTF-8') <= self::MAX_SEPA_PARTY_NAME_LENGTH
             && $recipientDetailsRule->isValid($charityRequest->iban)
             && $this->amountToCents($charityRequest->eventCost?->amount) !== null;
     }
@@ -237,12 +248,13 @@ class CharityRequestController extends Controller
         $validator = Validator::make($request->all(), [
             'charity_member_id' => ['required', 'integer'],
             'charity_event_cost_id' => ['required', 'integer'],
-            'account_name' => ['required', 'string', 'max:100'],
+            'account_name' => ['required', 'string', 'max:'.self::MAX_SEPA_PARTY_NAME_LENGTH],
             'iban' => ['required', 'string', new ValidIban],
         ], [
             'charity_member_id.required' => 'Kies een lid.',
             'charity_event_cost_id.required' => 'Kies een actieve gelegenheid.',
             'account_name.required' => 'Vul de naam in zoals die bij de bank bekend is.',
+            'account_name.max' => 'De naam mag niet langer zijn dan 70 tekens.',
         ]);
 
         $validator->after(function (ValidatorContract $validator) use (&$member, &$eventCost, $requesterEmail): void {

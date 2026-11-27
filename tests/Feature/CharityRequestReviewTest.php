@@ -238,6 +238,15 @@ it('flags accepted requests with incomplete payment details before export', func
     ]);
     $blankNameRequest->forceFill(['status' => CharityRequestStatus::Accepted])->save();
 
+    $overlongNameRequest = CharityRequest::create([
+        'requester_email' => 'overlong-name@example.test',
+        'charity_member_id' => $this->member->id,
+        'charity_event_cost_id' => $this->eventCost->id,
+        'account_name' => str_repeat('A', 71),
+        'iban' => 'BE68539007547034',
+    ]);
+    $overlongNameRequest->forceFill(['status' => CharityRequestStatus::Accepted])->save();
+
     $invalidIbanRequest = CharityRequest::create([
         'requester_email' => 'invalid-iban@example.test',
         'charity_member_id' => $this->member->id,
@@ -282,19 +291,20 @@ it('flags accepted requests with incomplete payment details before export', func
     $response = $this->withSession(charityReviewSession('super@example.test'))
         ->get(route('charity.requests.payment-overview'))
         ->assertOk()
-        ->assertSeeText('Aantal goedgekeurd: 7')
+        ->assertSeeText('Aantal goedgekeurd: 8')
         ->assertSeeText('Ontvangergegevens en bedrag geldig: 1')
-        ->assertSeeText('Ontvangergegevens ontbreken of bedrag ongeldig: 6')
+        ->assertSeeText('Ontvangergegevens ontbreken of bedrag ongeldig: 7')
         ->assertSeeText('Een ontvangergegeven ontbreekt, een IBAN klopt niet of een bedrag is nul of negatief.')
         ->assertSee('IBAN: Niet ingevuld');
 
     expect(substr_count($response->getContent(), 'Gegevens compleet; meegenomen in het totaal.'))->toBe(1)
-        ->and(substr_count($response->getContent(), 'Gegevens onvolledig; niet meegenomen in het totaal.'))->toBe(6);
+        ->and(substr_count($response->getContent(), 'Gegevens onvolledig; niet meegenomen in het totaal.'))->toBe(7);
 
     expect($this->request->fresh()->status)->toBe(CharityRequestStatus::Accepted)
         ->and($missingIbanRequest->fresh()->status)->toBe(CharityRequestStatus::Accepted)
         ->and($missingNameRequest->fresh()->status)->toBe(CharityRequestStatus::Accepted)
         ->and($blankNameRequest->fresh()->status)->toBe(CharityRequestStatus::Accepted)
+        ->and($overlongNameRequest->fresh()->status)->toBe(CharityRequestStatus::Accepted)
         ->and($invalidIbanRequest->fresh()->status)->toBe(CharityRequestStatus::Accepted)
         ->and($zeroAmountRequest->fresh()->status)->toBe(CharityRequestStatus::Accepted)
         ->and($negativeAmountRequest->fresh()->status)->toBe(CharityRequestStatus::Accepted);
