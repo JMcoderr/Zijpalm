@@ -76,19 +76,24 @@ class CharityRequestController extends Controller
         $acceptedRequestCount = $requests->total();
 
         $recipientDetailsRule = new ValidIban;
-        $requestsWithCompleteRecipientDetailsCount = 0;
+        $requestsWithValidRecipientAndAmountCount = 0;
 
-        // IBANs are encrypted in the database, so check their checksum after Eloquent decrypts each batch.
+        // Check encrypted IBANs after decryption and load event costs a batch at a time.
         (clone $acceptedRequests)
-            ->select(['id', 'account_name', 'iban'])
-            ->chunkById(100, function ($requests) use ($recipientDetailsRule, &$requestsWithCompleteRecipientDetailsCount): void {
+            ->select(['id', 'account_name', 'iban', 'charity_event_cost_id'])
+            ->with('eventCost:id,amount')
+            ->chunkById(100, function ($requests) use ($recipientDetailsRule, &$requestsWithValidRecipientAndAmountCount): void {
                 foreach ($requests as $charityRequest) {
+                    $amount = $charityRequest->eventCost?->amount;
+
                     if (
                         is_string($charityRequest->account_name)
                         && trim($charityRequest->account_name) !== ''
                         && $recipientDetailsRule->isValid($charityRequest->iban)
+                        && is_numeric($amount)
+                        && (float) $amount > 0
                     ) {
-                        $requestsWithCompleteRecipientDetailsCount++;
+                        $requestsWithValidRecipientAndAmountCount++;
                     }
                 }
             });
@@ -101,8 +106,8 @@ class CharityRequestController extends Controller
             ->view('charity.requests.payment-overview', [
                 'requests' => $requests,
                 'acceptedRequestCount' => $acceptedRequestCount,
-                'requestsWithCompleteRecipientDetailsCount' => $requestsWithCompleteRecipientDetailsCount,
-                'requestsWithIncompleteRecipientDetailsCount' => $acceptedRequestCount - $requestsWithCompleteRecipientDetailsCount,
+                'requestsWithValidRecipientAndAmountCount' => $requestsWithValidRecipientAndAmountCount,
+                'requestsWithIncompletePaymentDetailsCount' => $acceptedRequestCount - $requestsWithValidRecipientAndAmountCount,
                 'acceptedTotal' => $acceptedTotal,
                 'hasPaymentDebtorDetails' => $request->session()->has(
                     CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY
