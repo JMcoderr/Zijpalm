@@ -86,7 +86,10 @@ class CharityMagicLoginController extends Controller
     public function logout(Request $request): RedirectResponse
     {
         // Leave any ordinary Zijpalm login in place.
-        $request->session()->forget('charity_magic');
+        $request->session()->forget([
+            'charity_magic',
+            CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY,
+        ]);
         $request->session()->regenerate(true);
 
         return redirect()

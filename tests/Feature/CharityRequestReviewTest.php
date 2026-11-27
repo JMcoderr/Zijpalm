@@ -7,7 +7,9 @@ use App\Models\CharityEvent;
 use App\Models\CharityEventCost;
 use App\Models\CharityMember;
 use App\Models\CharityRequest;
+use App\Services\CharitySessionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Mail;
 
 uses(RefreshDatabase::class);
@@ -67,10 +69,17 @@ it('requires a current superadmin to open the payment overview', function () {
     $this->get(route('charity.requests.payment-overview'))
         ->assertRedirect(route('charity.login'));
 
+    $this->post(route('charity.requests.payment-details'))
+        ->assertRedirect(route('charity.login'));
+
     CharityAdmin::create(['employee' => 'admin@example.test']);
 
     $this->withSession(charityReviewSession())
         ->get(route('charity.requests.payment-overview'))
+        ->assertForbidden();
+
+    $this->withSession(charityReviewSession())
+        ->post(route('charity.requests.payment-details'))
         ->assertForbidden();
 });
 
@@ -162,6 +171,8 @@ it('shows only accepted payment details on a private uncached superadmin page', 
         ->assertSee('Example Recipient')
         ->assertSee('Approved Payee')
         ->assertSee('GB82WEST12345698765432')
+        ->assertSee('Voorbereiding SEPA-export')
+        ->assertSee(route('charity.requests.payment-details'))
         ->assertSee('125,50')
         ->assertDontSee('Aanvraag #'.$this->request->id)
         ->assertDontSee('employee@example.test')
@@ -173,6 +184,66 @@ it('shows only accepted payment details on a private uncached superadmin page', 
 
     expect($acceptedRequest->fresh()->status)->toBe(CharityRequestStatus::Accepted)
         ->and($exportedRequest->fresh()->status)->toBe(CharityRequestStatus::Exported);
+});
+
+it('stores validated debtor details encrypted in the superadmin session', function () {
+    $superadmin = CharityAdmin::create(['employee' => 'super@example.test']);
+    $superadmin->super = now();
+    $superadmin->save();
+
+    $iban = 'NL91ABNA0417164300';
+
+    $this->withSession(charityReviewSession('super@example.test'))
+        ->post(route('charity.requests.payment-details'), [
+            'debtor_name' => 'Zijpalm Vereniging',
+            'debtor_iban' => 'nl91 abna 0417 1643 00',
+        ])
+        ->assertRedirect(route('charity.requests.payment-overview'))
+        ->assertSessionHas('status', 'Betalergegevens zijn tijdelijk opgeslagen.')
+        ->assertSessionHas(CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY, function (string $encryptedDetails) use ($iban): bool {
+            $details = Crypt::decrypt($encryptedDetails);
+
+            return is_array($details)
+                && $details['name'] === 'Zijpalm Vereniging'
+                && $details['iban'] === $iban
+                && ! str_contains($encryptedDetails, 'Zijpalm Vereniging')
+                && ! str_contains($encryptedDetails, $iban);
+        });
+
+    $this->withSession([
+        ...charityReviewSession('super@example.test'),
+        CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY => Crypt::encrypt([
+            'name' => 'Zijpalm Vereniging',
+            'iban' => $iban,
+        ]),
+    ])
+        ->get(route('charity.requests.payment-overview'))
+        ->assertOk()
+        ->assertSee('De betalergegevens zijn tijdelijk voor deze sessie opgeslagen.')
+        ->assertDontSee($iban);
+});
+
+it('does not keep previous debtor details or flash an invalid iban', function () {
+    $superadmin = CharityAdmin::create(['employee' => 'super@example.test']);
+    $superadmin->super = now();
+    $superadmin->save();
+
+    $this->from(route('charity.requests.payment-overview'))
+        ->withSession([
+            ...charityReviewSession('super@example.test'),
+            CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY => Crypt::encrypt([
+                'name' => 'Previous Payer',
+                'iban' => 'NL91ABNA0417164300',
+            ]),
+        ])
+        ->post(route('charity.requests.payment-details'), [
+            'debtor_name' => ' ',
+            'debtor_iban' => 'NL00ABNA0417164300',
+        ])
+        ->assertRedirect(route('charity.requests.payment-overview'))
+        ->assertSessionHasErrors(['debtor_name', 'debtor_iban'])
+        ->assertSessionMissing(CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY)
+        ->assertSessionMissing('_old_input.debtor_iban');
 });
 
 it('allows an admin to accept a pending request', function () {

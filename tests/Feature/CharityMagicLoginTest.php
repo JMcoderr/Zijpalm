@@ -3,6 +3,7 @@
 use App\Mail\CharityMagicLinkMail;
 use App\Models\User;
 use App\Services\CharityMagicLinkService;
+use App\Services\CharitySessionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -143,10 +144,12 @@ it('logs out of Lief & Leed without logging out of Zijpalm', function () {
                 'email' => 'employee@example.test',
                 'expires_at' => now()->addHours(24)->timestamp,
             ],
+            CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY => 'encrypted-value',
         ])
         ->post(route('charity.logout'))
         ->assertRedirect(route('charity.login'))
-        ->assertSessionMissing('charity_magic');
+        ->assertSessionMissing('charity_magic')
+        ->assertSessionMissing(CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY);
 
     $this->assertAuthenticatedAs($user, 'web');
 });
@@ -157,9 +160,11 @@ it('clears an expired Lief & Leed session when the login page is opened', functi
             'email' => 'employee@example.test',
             'expires_at' => now()->subSecond()->timestamp,
         ],
+        CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY => 'encrypted-value',
     ])
         ->get(route('charity.login'))
         ->assertOk()
         ->assertDontSee('employee@example.test')
-        ->assertSessionMissing('charity_magic');
+        ->assertSessionMissing('charity_magic')
+        ->assertSessionMissing(CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY);
 });

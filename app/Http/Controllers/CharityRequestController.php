@@ -14,6 +14,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
@@ -47,7 +48,7 @@ class CharityRequestController extends Controller
         ]);
     }
 
-    public function paymentOverview(): Response
+    public function paymentOverview(Request $request): Response
     {
         // Bank details are only loaded for the superadmin-only payment overview.
         $requests = CharityRequest::query()
@@ -71,8 +72,44 @@ class CharityRequestController extends Controller
         return response()
             ->view('charity.requests.payment-overview', [
                 'requests' => $requests,
+                'hasPaymentDebtorDetails' => $request->session()->has(
+                    CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY
+                ),
             ])
             ->header('Cache-Control', 'no-store, private');
+    }
+
+    public function storePaymentDebtorDetails(Request $request): RedirectResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'debtor_name' => ['required', 'string', 'min:2', 'max:70'],
+            'debtor_iban' => ['required', 'string', new ValidIban],
+        ], [
+            'debtor_name.required' => 'Vul de naam van de rekeninghouder in.',
+            'debtor_iban.required' => 'Vul het IBAN van de betaler in.',
+        ]);
+
+        // A failed update must not leave older payment details available for a later export.
+        $request->session()->forget(CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY);
+
+        if ($validator->fails()) {
+            return back()
+                ->withErrors($validator)
+                ->withInput($request->except('debtor_iban'));
+        }
+
+        $validated = $validator->validated();
+        $iban = strtoupper((string) preg_replace('/\s+/', '', $validated['debtor_iban']));
+
+        // Session encryption can be disabled by deployment config, so protect payer details explicitly.
+        $request->session()->put(CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY, Crypt::encrypt([
+            'name' => trim($validated['debtor_name']),
+            'iban' => $iban,
+        ]));
+
+        return redirect()
+            ->route('charity.requests.payment-overview')
+            ->with('status', 'Betalergegevens zijn tijdelijk opgeslagen.');
     }
 
     public function create(): View

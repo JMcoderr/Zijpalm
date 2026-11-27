@@ -30,4 +30,8 @@ Route::prefix('lief-en-leed')->name('charity.')->controller(CharityMagicLoginCon
     Route::get('aanvragen/betaaloverzicht', [CharityRequestController::class, 'paymentOverview'])
         ->middleware('charity.super')
         ->name('requests.payment-overview');
+
+    Route::post('aanvragen/betaaloverzicht/gegevens', [CharityRequestController::class, 'storePaymentDebtorDetails'])
+        ->middleware('charity.super')
+        ->name('requests.payment-details');
 });

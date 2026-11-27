@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\CharityAdmin;
+use App\Services\CharitySessionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
 
@@ -85,6 +86,20 @@ it('requires a superadmin grant for superadmin access', function () {
     $this->withSession(charitySessionFor())
         ->get('/_test/charity/super')
         ->assertNoContent();
+});
+
+it('clears temporary payment details when the charity session is no longer valid', function () {
+    $this->withSession([
+        'charity_magic' => [
+            'email' => 'employee@example.test',
+            'expires_at' => 1,
+        ],
+        CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY => 'encrypted-value',
+    ])
+        ->get('/_test/charity/session')
+        ->assertRedirect(route('charity.login'))
+        ->assertSessionMissing('charity_magic')
+        ->assertSessionMissing(CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY);
 });
 
 it('does not let a regular Zijpalm account open a charity route', function () {
