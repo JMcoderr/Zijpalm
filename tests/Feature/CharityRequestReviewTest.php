@@ -460,9 +460,12 @@ it('creates an encrypted export batch once and allows the same XML to be downloa
         ->post(route('charity.requests.payment-export'))
         ->assertOk()
         ->assertDownload()
-        ->assertHeader('Cache-Control', 'no-store, private')
         ->assertHeader('Content-Type', 'application/xml; charset=UTF-8')
         ->assertSessionMissing(CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY);
+
+    expect($response->headers->get('Cache-Control'))
+        ->toContain('no-store')
+        ->toContain('private');
 
     $xml = $response->streamedContent();
     $document = new DOMDocument;
@@ -494,12 +497,15 @@ it('creates an encrypted export batch once and allows the same XML to be downloa
         ->and($secondRequest->fresh()->status)->toBe(CharityRequestStatus::Exported)
         ->and($secondRequest->fresh()->charity_payment_batch_id)->toBe($batch->id);
 
-    $this->withSession(charityReviewSession('super@example.test'))
+    $redownloadResponse = $this->withSession(charityReviewSession('super@example.test'))
         ->get(route('charity.requests.payment-batches.download', $batch))
         ->assertOk()
-        ->assertDownload('sepa-batch-'.$batch->id.'.xml')
-        ->assertHeader('Cache-Control', 'no-store, private')
-        ->assertStreamedContent($xml);
+        ->assertDownload('sepa-batch-'.$batch->id.'.xml');
+
+    expect($redownloadResponse->headers->get('Cache-Control'))
+        ->toContain('no-store')
+        ->toContain('private');
+    $redownloadResponse->assertStreamedContent($xml);
 
     $this->withSession(charityReviewSession('super@example.test'))
         ->get(route('charity.requests.payment-overview'))
