@@ -9,6 +9,63 @@
             Dit overzicht voert geen betaling uit en wijzigt de aanvraagstatus niet.
         </p>
 
+        @if ($hasPaymentDebtorDetails)
+            <p class="rounded-lg bg-green-50 p-3 text-sm text-green-900" role="status">
+                De betalergegevens zijn tijdelijk voor deze sessie opgeslagen.
+            </p>
+        @endif
+
+        <form method="post" action="{{ route('charity.requests.payment-details') }}" class="space-y-4 rounded-lg border border-zinc-200 p-4">
+            @csrf
+            <div>
+                <h2 class="font-semibold text-zinc-900">Voorbereiding SEPA-export</h2>
+                <p class="mt-1 text-sm text-zinc-700">
+                    Vul de naam en het IBAN van de betaler in. Deze gegevens worden tijdelijk en versleuteld in je sessie bewaard.
+                    Er wordt nog geen exportbestand gemaakt en er wordt geen betaling uitgevoerd.
+                </p>
+            </div>
+
+            <div>
+                <label for="debtor_name" class="mb-1 block text-sm font-medium text-zinc-700">Naam rekeninghouder</label>
+                <input
+                    id="debtor_name"
+                    name="debtor_name"
+                    type="text"
+                    value="{{ old('debtor_name') }}"
+                    maxlength="70"
+                    autocomplete="organization"
+                    required
+                    class="w-full rounded-lg border border-zinc-300 px-3 py-2"
+                >
+                @error('debtor_name')
+                    <p class="mt-1 text-sm text-red-700">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <div>
+                <label for="debtor_iban" class="mb-1 block text-sm font-medium text-zinc-700">IBAN betaler</label>
+                <input
+                    id="debtor_iban"
+                    name="debtor_iban"
+                    type="text"
+                    autocomplete="off"
+                    autocapitalize="characters"
+                    required
+                    class="w-full rounded-lg border border-zinc-300 px-3 py-2"
+                >
+                @error('debtor_iban')
+                    <p class="mt-1 text-sm text-red-700">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <button
+                type="submit"
+                class="inline-flex w-full items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+            >
+                Gegevens tijdelijk opslaan
+            </button>
+        </form>
+
         @if ($requests->count() === 0)
             <p class="rounded-lg bg-zinc-50 p-3 text-sm text-zinc-700" role="status">
                 Er staan geen goedgekeurde aanvragen klaar.

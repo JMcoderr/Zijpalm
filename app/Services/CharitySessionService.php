@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Validator;
 
 class CharitySessionService
 {
+    public const PAYMENT_DEBTOR_SESSION_KEY = 'charity_payment_debtor';
+
     public function activeEmail(Request $request): ?string
     {
         // Recheck the domain and expiry on every protected page.
@@ -20,7 +22,10 @@ class CharitySessionService
             || ! is_numeric($charitySession['expires_at'] ?? null)
             || (int) $charitySession['expires_at'] <= now()->timestamp
         ) {
-            $request->session()->forget('charity_magic');
+            $request->session()->forget([
+                'charity_magic',
+                self::PAYMENT_DEBTOR_SESSION_KEY,
+            ]);
 
             return null;
         }
