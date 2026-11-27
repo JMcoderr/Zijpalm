@@ -279,7 +279,7 @@ it('flags accepted requests with incomplete payment details before export', func
     $superadmin->super = now();
     $superadmin->save();
 
-    $this->withSession(charityReviewSession('super@example.test'))
+    $response = $this->withSession(charityReviewSession('super@example.test'))
         ->get(route('charity.requests.payment-overview'))
         ->assertOk()
         ->assertSeeText('Aantal goedgekeurd: 7')
@@ -287,6 +287,9 @@ it('flags accepted requests with incomplete payment details before export', func
         ->assertSeeText('Ontvangergegevens ontbreken of bedrag ongeldig: 6')
         ->assertSeeText('Een ontvangergegeven ontbreekt, een IBAN klopt niet of een bedrag is nul of negatief.')
         ->assertSee('IBAN: Niet ingevuld');
+
+    expect(substr_count($response->getContent(), 'Gegevens compleet; meegenomen in het totaal.'))->toBe(1)
+        ->and(substr_count($response->getContent(), 'Gegevens onvolledig; niet meegenomen in het totaal.'))->toBe(6);
 
     expect($this->request->fresh()->status)->toBe(CharityRequestStatus::Accepted)
         ->and($missingIbanRequest->fresh()->status)->toBe(CharityRequestStatus::Accepted)

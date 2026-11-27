@@ -118,6 +118,15 @@
                         <h2 class="font-semibold text-zinc-900">
                             Aanvraag #{{ $charityRequest->id }} - {{ $charityRequest->eventCost->event->title }}
                         </h2>
+                        @if ($charityRequest->payment_details_complete)
+                            <p class="rounded-lg bg-green-50 p-2 text-sm text-green-900" role="status">
+                                Gegevens compleet; meegenomen in het totaal.
+                            </p>
+                        @else
+                            <p class="rounded-lg bg-amber-50 p-2 text-sm text-amber-900" role="alert">
+                                Gegevens onvolledig; niet meegenomen in het totaal.
+                            </p>
+                        @endif
                         <p class="text-sm text-zinc-700">
                             Lid: {{ $charityRequest->member?->full_name ?: $charityRequest->member?->name ?: 'Onbekend lid' }}
                             (ID {{ $charityRequest->charity_member_id }})

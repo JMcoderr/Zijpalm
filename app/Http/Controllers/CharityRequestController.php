@@ -74,10 +74,17 @@ class CharityRequestController extends Controller
             ->paginate(15);
 
         $acceptedRequestCount = $requests->total();
-
         $recipientDetailsRule = new ValidIban;
         $requestsWithValidRecipientAndAmountCount = 0;
         $paymentReadyTotalInCents = 0;
+
+        // Use the same check in the list and the total so each request's status is clear.
+        $requests->getCollection()->each(function (CharityRequest $charityRequest) use ($recipientDetailsRule): void {
+            $charityRequest->setAttribute(
+                'payment_details_complete',
+                $this->hasCompletePaymentDetails($charityRequest, $recipientDetailsRule),
+            );
+        });
 
         // Check encrypted IBANs after decryption and load event costs a batch at a time.
         (clone $acceptedRequests)
@@ -89,17 +96,12 @@ class CharityRequestController extends Controller
                 &$paymentReadyTotalInCents,
             ): void {
                 foreach ($requests as $charityRequest) {
-                    $amountInCents = $this->amountToCents($charityRequest->eventCost?->amount);
-
-                    if (
-                        is_string($charityRequest->account_name)
-                        && trim($charityRequest->account_name) !== ''
-                        && $recipientDetailsRule->isValid($charityRequest->iban)
-                        && $amountInCents !== null
-                    ) {
-                        $requestsWithValidRecipientAndAmountCount++;
-                        $paymentReadyTotalInCents += $amountInCents;
+                    if (! $this->hasCompletePaymentDetails($charityRequest, $recipientDetailsRule)) {
+                        continue;
                     }
+
+                    $requestsWithValidRecipientAndAmountCount++;
+                    $paymentReadyTotalInCents += (int) $this->amountToCents($charityRequest->eventCost?->amount);
                 }
             });
 
@@ -115,6 +117,14 @@ class CharityRequestController extends Controller
                 ),
             ])
             ->header('Cache-Control', 'no-store, private');
+    }
+
+    private function hasCompletePaymentDetails(CharityRequest $charityRequest, ValidIban $recipientDetailsRule): bool
+    {
+        return is_string($charityRequest->account_name)
+            && trim($charityRequest->account_name) !== ''
+            && $recipientDetailsRule->isValid($charityRequest->iban)
+            && $this->amountToCents($charityRequest->eventCost?->amount) !== null;
     }
 
     private function amountToCents(mixed $amount): ?int
