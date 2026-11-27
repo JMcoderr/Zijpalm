@@ -65,6 +65,8 @@ class CharityMagicLoginController extends Controller
 
         // Keep this identity separate from the ordinary Zijpalm authentication guard.
         $request->session()->regenerate(true);
+        // Regenerating the session ID does not clear the previous payer details.
+        $request->session()->forget(CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY);
         $request->session()->put('charity_magic', [
             'email' => mb_strtolower(trim($email)),
             'expires_at' => now()->addHours(24)->timestamp,

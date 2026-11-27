@@ -14,6 +14,9 @@
         @error('status')
             <p class="rounded-lg bg-red-50 p-3 text-sm text-red-800" role="alert">{{ $message }}</p>
         @enderror
+        @error('notification')
+            <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900" role="alert">{{ $message }}</p>
+        @enderror
 
         @if ($requests->count() === 0)
             <p class="rounded-lg bg-zinc-50 p-3 text-sm text-zinc-700" role="status">
