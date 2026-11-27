@@ -263,20 +263,23 @@ it('stores validated debtor details encrypted in the superadmin session', functi
     $superadmin->save();
 
     $iban = 'NL91ABNA0417164300';
+    $executionDate = now()->addDays(3)->toDateString();
 
     $this->withSession(charityReviewSession('super@example.test'))
         ->post(route('charity.requests.payment-details'), [
             'debtor_name' => 'Zijpalm Vereniging',
             'debtor_iban' => 'nl91 abna 0417 1643 00',
+            'execution_date' => $executionDate,
         ])
         ->assertRedirect(route('charity.requests.payment-overview'))
-        ->assertSessionHas('status', 'Betalergegevens zijn tijdelijk opgeslagen.')
-        ->assertSessionHas(CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY, function (string $encryptedDetails) use ($iban): bool {
+        ->assertSessionHas('status', 'Betalergegevens en uitvoeringsdatum zijn tijdelijk opgeslagen.')
+        ->assertSessionHas(CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY, function (string $encryptedDetails) use ($iban, $executionDate): bool {
             $details = Crypt::decrypt($encryptedDetails);
 
             return is_array($details)
                 && $details['name'] === 'Zijpalm Vereniging'
                 && $details['iban'] === $iban
+                && $details['execution_date'] === $executionDate
                 && ! str_contains($encryptedDetails, 'Zijpalm Vereniging')
                 && ! str_contains($encryptedDetails, $iban);
         });
@@ -286,6 +289,7 @@ it('stores validated debtor details encrypted in the superadmin session', functi
         CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY => Crypt::encrypt([
             'name' => 'Zijpalm Vereniging',
             'iban' => $iban,
+            'execution_date' => $executionDate,
         ]),
     ])
         ->get(route('charity.requests.payment-overview'))
@@ -310,9 +314,10 @@ it('does not keep previous debtor details or flash an invalid iban', function ()
         ->post(route('charity.requests.payment-details'), [
             'debtor_name' => ' ',
             'debtor_iban' => 'NL00ABNA0417164300',
+            'execution_date' => now()->subDay()->toDateString(),
         ])
         ->assertRedirect(route('charity.requests.payment-overview'))
-        ->assertSessionHasErrors(['debtor_name', 'debtor_iban'])
+        ->assertSessionHasErrors(['debtor_name', 'debtor_iban', 'execution_date'])
         ->assertSessionMissing(CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY)
         ->assertSessionMissing('_old_input.debtor_iban');
 });

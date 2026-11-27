@@ -20,7 +20,8 @@
             <div>
                 <h2 class="font-semibold text-zinc-900">Voorbereiding SEPA-export</h2>
                 <p class="mt-1 text-sm text-zinc-700">
-                    Vul de naam en het IBAN van de betaler in. Deze gegevens worden tijdelijk en versleuteld in je sessie bewaard.
+                    Vul de naam, het IBAN en de gewenste uitvoeringsdatum in. Deze gegevens worden tijdelijk en versleuteld in je sessie bewaard.
+                    De bank kan de verwerking aanpassen op basis van de aanlevertijd en feestdagen.
                     Er wordt nog geen exportbestand gemaakt en er wordt geen betaling uitgevoerd.
                 </p>
             </div>
@@ -54,6 +55,22 @@
                     class="w-full rounded-lg border border-zinc-300 px-3 py-2"
                 >
                 @error('debtor_iban')
+                    <p class="mt-1 text-sm text-red-700">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <div>
+                <label for="execution_date" class="mb-1 block text-sm font-medium text-zinc-700">Gewenste uitvoeringsdatum</label>
+                <input
+                    id="execution_date"
+                    name="execution_date"
+                    type="date"
+                    value="{{ old('execution_date') }}"
+                    min="{{ now()->toDateString() }}"
+                    required
+                    class="w-full rounded-lg border border-zinc-300 px-3 py-2"
+                >
+                @error('execution_date')
                     <p class="mt-1 text-sm text-red-700">{{ $message }}</p>
                 @enderror
             </div>
