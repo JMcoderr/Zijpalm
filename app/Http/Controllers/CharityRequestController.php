@@ -8,6 +8,7 @@ use App\Models\CharityEventCost;
 use App\Models\CharityMember;
 use App\Models\CharityRequest;
 use App\Rules\ValidIban;
+use App\Services\CharityPaymentReadiness;
 use App\Services\CharitySessionService;
 use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Contracts\View\View;
@@ -24,9 +25,6 @@ use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
 class CharityRequestController extends Controller
 {
-    // SEPA XML allows a maximum of 70 characters for a party name.
-    private const MAX_SEPA_PARTY_NAME_LENGTH = 70;
-
     public function index(): View
     {
         // Load only the details needed for review; bank data stays out of this page.
@@ -53,7 +51,7 @@ class CharityRequestController extends Controller
         ]);
     }
 
-    public function paymentOverview(Request $request): Response
+    public function paymentOverview(Request $request, CharityPaymentReadiness $paymentReadiness): Response
     {
         // Bank details are only loaded for the superadmin-only payment overview.
         $acceptedRequests = CharityRequest::query()
@@ -77,15 +75,14 @@ class CharityRequestController extends Controller
             ->paginate(15);
 
         $acceptedRequestCount = $requests->total();
-        $recipientDetailsRule = new ValidIban;
         $requestsWithValidRecipientAndAmountCount = 0;
         $paymentReadyTotalInCents = 0;
 
         // Use the same check in the list and the total so each request's status is clear.
-        $requests->getCollection()->each(function (CharityRequest $charityRequest) use ($recipientDetailsRule): void {
+        $requests->getCollection()->each(function (CharityRequest $charityRequest) use ($paymentReadiness): void {
             $charityRequest->setAttribute(
                 'payment_details_complete',
-                $this->hasCompletePaymentDetails($charityRequest, $recipientDetailsRule),
+                $paymentReadiness->isComplete($charityRequest),
             );
         });
 
@@ -94,17 +91,17 @@ class CharityRequestController extends Controller
             ->select(['id', 'account_name', 'iban', 'charity_event_cost_id'])
             ->with('eventCost:id,amount')
             ->chunkById(100, function ($requests) use (
-                $recipientDetailsRule,
+                $paymentReadiness,
                 &$requestsWithValidRecipientAndAmountCount,
                 &$paymentReadyTotalInCents,
             ): void {
                 foreach ($requests as $charityRequest) {
-                    if (! $this->hasCompletePaymentDetails($charityRequest, $recipientDetailsRule)) {
+                    if (! $paymentReadiness->isComplete($charityRequest)) {
                         continue;
                     }
 
                     $requestsWithValidRecipientAndAmountCount++;
-                    $paymentReadyTotalInCents += (int) $this->amountToCents($charityRequest->eventCost?->amount);
+                    $paymentReadyTotalInCents += (int) $paymentReadiness->amountToCents($charityRequest->eventCost?->amount);
                 }
             });
 
@@ -115,6 +112,7 @@ class CharityRequestController extends Controller
                 'requestsWithValidRecipientAndAmountCount' => $requestsWithValidRecipientAndAmountCount,
                 'requestsWithIncompletePaymentDetailsCount' => $acceptedRequestCount - $requestsWithValidRecipientAndAmountCount,
                 'paymentReadyTotal' => number_format($paymentReadyTotalInCents / 100, 2, ',', '.'),
+                'maxSepaPartyNameLength' => CharityPaymentReadiness::MAX_SEPA_PARTY_NAME_LENGTH,
                 'hasPaymentDebtorDetails' => $request->session()->has(
                     CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY
                 ),
@@ -122,45 +120,10 @@ class CharityRequestController extends Controller
             ->header('Cache-Control', 'no-store, private');
     }
 
-    private function hasCompletePaymentDetails(CharityRequest $charityRequest, ValidIban $recipientDetailsRule): bool
-    {
-        $accountName = $charityRequest->account_name;
-
-        if (! is_string($accountName)) {
-            return false;
-        }
-
-        $accountName = trim($accountName);
-
-        return $accountName !== ''
-            && mb_strlen($accountName, 'UTF-8') <= self::MAX_SEPA_PARTY_NAME_LENGTH
-            && $recipientDetailsRule->isValid($charityRequest->iban)
-            && $this->amountToCents($charityRequest->eventCost?->amount) !== null;
-    }
-
-    private function amountToCents(mixed $amount): ?int
-    {
-        if ((! is_string($amount) && ! is_int($amount) && ! is_float($amount))
-            || ! preg_match('/\A[0-9]+(?:\.[0-9]{1,2})?\z/', (string) $amount)) {
-            return null;
-        }
-
-        [$whole, $fraction] = array_pad(explode('.', (string) $amount, 2), 2, '');
-        $whole = ltrim($whole, '0') ?: '0';
-
-        if (strlen($whole) > 11) {
-            return null;
-        }
-
-        $amountInCents = ((int) $whole * 100) + (int) str_pad($fraction, 2, '0');
-
-        return $amountInCents > 0 ? $amountInCents : null;
-    }
-
     public function storePaymentDebtorDetails(Request $request): RedirectResponse
     {
         $validator = Validator::make($request->all(), [
-            'debtor_name' => ['required', 'string', 'min:2', 'max:70'],
+            'debtor_name' => ['required', 'string', 'min:2', 'max:'.CharityPaymentReadiness::MAX_SEPA_PARTY_NAME_LENGTH],
             'debtor_iban' => ['required', 'string', new ValidIban],
             'execution_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
         ], [
@@ -231,6 +194,7 @@ class CharityRequestController extends Controller
         return view('charity.requests.create', [
             'eventCosts' => $eventCosts,
             'members' => $members,
+            'maxSepaPartyNameLength' => CharityPaymentReadiness::MAX_SEPA_PARTY_NAME_LENGTH,
         ]);
     }
 
@@ -249,13 +213,14 @@ class CharityRequestController extends Controller
         $validator = Validator::make($request->all(), [
             'charity_member_id' => ['required', 'integer'],
             'charity_event_cost_id' => ['required', 'integer'],
-            'account_name' => ['required', 'string', 'max:'.self::MAX_SEPA_PARTY_NAME_LENGTH],
+            'account_name' => ['required', 'string', 'max:'.CharityPaymentReadiness::MAX_SEPA_PARTY_NAME_LENGTH],
             'iban' => ['required', 'string', new ValidIban],
         ], [
             'charity_member_id.required' => 'Kies een lid.',
             'charity_event_cost_id.required' => 'Kies een actieve gelegenheid.',
             'account_name.required' => 'Vul de naam in zoals die bij de bank bekend is.',
-            'account_name.max' => 'De naam mag niet langer zijn dan 70 tekens.',
+            'account_name.max' => 'De naam mag niet langer zijn dan '
+                .CharityPaymentReadiness::MAX_SEPA_PARTY_NAME_LENGTH.' tekens.',
         ]);
 
         $validator->after(function (ValidatorContract $validator) use (&$member, &$eventCost, $requesterEmail): void {

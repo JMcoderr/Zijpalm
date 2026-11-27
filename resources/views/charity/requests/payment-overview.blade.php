@@ -32,7 +32,7 @@
                     id="debtor_name"
                     name="debtor_name"
                     type="text"
-                    maxlength="70"
+                    maxlength="{{ $maxSepaPartyNameLength }}"
                     autocomplete="organization"
                     required
                     class="w-full rounded-lg border border-zinc-300 px-3 py-2"
@@ -98,7 +98,7 @@
             </p>
             @if ($requestsWithIncompletePaymentDetailsCount > 0)
                 <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900" role="alert">
-                    Controleer of de rekeningnaam is ingevuld en maximaal 70 tekens heeft, het IBAN geldig is en het bedrag hoger is dan nul.
+                    Controleer of de rekeningnaam is ingevuld en maximaal {{ $maxSepaPartyNameLength }} tekens heeft, het IBAN geldig is en het bedrag hoger is dan nul.
                 </p>
             @endif
             <p class="text-sm text-zinc-600">
