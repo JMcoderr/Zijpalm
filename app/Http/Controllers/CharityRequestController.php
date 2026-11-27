@@ -105,9 +105,13 @@ class CharityRequestController extends Controller
         $validator = Validator::make($request->all(), [
             'debtor_name' => ['required', 'string', 'min:2', 'max:70'],
             'debtor_iban' => ['required', 'string', new ValidIban],
+            'execution_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
         ], [
             'debtor_name.required' => 'Vul de naam van de rekeninghouder in.',
             'debtor_iban.required' => 'Vul het IBAN van de betaler in.',
+            'execution_date.required' => 'Kies de gewenste uitvoeringsdatum.',
+            'execution_date.date_format' => 'Vul een geldige uitvoeringsdatum in.',
+            'execution_date.after_or_equal' => 'De uitvoeringsdatum mag niet in het verleden liggen.',
         ]);
 
         // A failed update must not leave older payment details available for a later export.
@@ -126,11 +130,13 @@ class CharityRequestController extends Controller
         $request->session()->put(CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY, Crypt::encrypt([
             'name' => trim($validated['debtor_name']),
             'iban' => $iban,
+            // Keep the requested date with the payer details; the export must not guess it.
+            'execution_date' => $validated['execution_date'],
         ]));
 
         return redirect()
             ->route('charity.requests.payment-overview')
-            ->with('status', 'Betalergegevens zijn tijdelijk opgeslagen.');
+            ->with('status', 'Betalergegevens en uitvoeringsdatum zijn tijdelijk opgeslagen.');
     }
 
     public function create(): View
