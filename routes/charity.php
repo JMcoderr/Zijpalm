@@ -34,4 +34,12 @@ Route::prefix('lief-en-leed')->name('charity.')->controller(CharityMagicLoginCon
     Route::post('aanvragen/betaaloverzicht/gegevens', [CharityRequestController::class, 'storePaymentDebtorDetails'])
         ->middleware('charity.super')
         ->name('requests.payment-details');
+
+    Route::post('aanvragen/betaaloverzicht/export', [CharityRequestController::class, 'exportPaymentBatch'])
+        ->middleware('charity.super')
+        ->name('requests.payment-export');
+
+    Route::get('aanvragen/betaaloverzicht/batches/{charityPaymentBatch}/download', [CharityRequestController::class, 'downloadPaymentBatch'])
+        ->middleware('charity.super')
+        ->name('requests.payment-batches.download');
 });

@@ -47,6 +47,11 @@ class CharityRequest extends Model
         return $this->belongsTo(CharityEventCost::class, 'charity_event_cost_id');
     }
 
+    public function paymentBatch(): BelongsTo
+    {
+        return $this->belongsTo(CharityPaymentBatch::class);
+    }
+
     public function review(CharityRequestStatus $status, ?string $reason = null): bool
     {
         if ($this->status !== CharityRequestStatus::Pending

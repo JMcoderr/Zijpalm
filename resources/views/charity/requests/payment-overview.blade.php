@@ -6,8 +6,12 @@
         />
 
         <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900" role="note">
-            Dit overzicht voert geen betaling uit en wijzigt de aanvraagstatus niet.
+            Een export voert geen betaling uit. Aanvragen krijgen na het maken van het XML-bestand de status geëxporteerd, niet betaald.
         </p>
+
+        @error('export')
+            <p class="rounded-lg bg-red-50 p-3 text-sm text-red-800" role="alert">{{ $message }}</p>
+        @enderror
 
         @if ($hasPaymentDebtorDetails)
             <p class="rounded-lg bg-green-50 p-3 text-sm text-green-900" role="status">
@@ -22,7 +26,7 @@
                 <p class="mt-1 text-sm text-zinc-700">
                     Vul de naam, het IBAN en de gewenste uitvoeringsdatum in. Deze gegevens worden tijdelijk en versleuteld in je sessie bewaard.
                     De bank kan de verwerking aanpassen op basis van de aanlevertijd en feestdagen.
-                    Er wordt nog geen exportbestand gemaakt en er wordt geen betaling uitgevoerd.
+                    Na het opslaan kun je alle complete, goedgekeurde aanvragen in één export zetten. De export verandert de status naar geëxporteerd, maar voert geen betaling uit.
                 </p>
             </div>
 
@@ -102,8 +106,44 @@
                 </p>
             @endif
             <p class="text-sm text-zinc-600">
-                Dit is alleen een controle op goedgekeurde aanvragen. Er wordt nog geen exportbestand gemaakt en de status blijft hetzelfde.
+                Een export bevat alle goedgekeurde aanvragen. Als er één aanvraag onvolledig is, moet die eerst worden opgelost voordat de batch gemaakt kan worden.
             </p>
+        </section>
+
+        @if ($acceptedRequestCount > 0)
+            <form method="post" action="{{ route('charity.requests.payment-export') }}">
+                @csrf
+                <button
+                    type="submit"
+                    @disabled(! $hasPaymentDebtorDetails || $requestsWithIncompletePaymentDetailsCount > 0)
+                    class="inline-flex w-full items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
+                >
+                    Download SEPA XML
+                </button>
+            </form>
+        @endif
+
+        <section class="space-y-3 rounded-lg border border-zinc-200 p-4" aria-labelledby="payment-batches-title">
+            <h2 id="payment-batches-title" class="font-semibold text-zinc-900">Recente exports</h2>
+            @if ($paymentBatches->isEmpty())
+                <p class="text-sm text-zinc-700">Er zijn nog geen SEPA-exports gemaakt.</p>
+            @else
+                @foreach ($paymentBatches as $batch)
+                    <article class="flex flex-col gap-2 border-t border-zinc-200 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div class="text-sm text-zinc-700">
+                            <p>Batch #{{ $batch->id }} - {{ $batch->transaction_count }} betalingen</p>
+                            <p>Uitvoerdatum: {{ $batch->execution_date->format('d-m-Y') }} - Totaal: &euro; {{ number_format($batch->total_amount_cents / 100, 2, ',', '.') }}</p>
+                            <p>Gemaakt: {{ $batch->exported_at->format('d-m-Y H:i') }} - Status: {{ $batch->status === 'exported' ? 'Geëxporteerd' : $batch->status }}</p>
+                        </div>
+                        <a
+                            href="{{ route('charity.requests.payment-batches.download', $batch) }}"
+                            class="inline-flex items-center justify-center rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
+                        >
+                            XML opnieuw downloaden
+                        </a>
+                    </article>
+                @endforeach
+            @endif
         </section>
 
         @if ($requests->count() === 0)

@@ -6,10 +6,14 @@ use App\CharityRequestStatus;
 use App\Mail\CharityRequestReviewedMail;
 use App\Models\CharityEventCost;
 use App\Models\CharityMember;
+use App\Models\CharityPaymentBatch;
 use App\Models\CharityRequest;
 use App\Rules\ValidIban;
 use App\Services\CharityPaymentReadiness;
+use App\Services\CharitySepaXmlBuilder;
 use App\Services\CharitySessionService;
+use DateTimeImmutable;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -20,7 +24,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
 class CharityRequestController extends Controller
@@ -105,6 +111,19 @@ class CharityRequestController extends Controller
                 }
             });
 
+        $paymentBatches = CharityPaymentBatch::query()
+            ->select([
+                'id',
+                'execution_date',
+                'transaction_count',
+                'total_amount_cents',
+                'status',
+                'exported_at',
+            ])
+            ->orderByDesc('exported_at')
+            ->limit(10)
+            ->get();
+
         return response()
             ->view('charity.requests.payment-overview', [
                 'requests' => $requests,
@@ -113,6 +132,7 @@ class CharityRequestController extends Controller
                 'requestsWithIncompletePaymentDetailsCount' => $acceptedRequestCount - $requestsWithValidRecipientAndAmountCount,
                 'paymentReadyTotal' => number_format($paymentReadyTotalInCents / 100, 2, ',', '.'),
                 'maxSepaPartyNameLength' => CharityPaymentReadiness::MAX_SEPA_PARTY_NAME_LENGTH,
+                'paymentBatches' => $paymentBatches,
                 'hasPaymentDebtorDetails' => $request->session()->has(
                     CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY
                 ),
@@ -158,6 +178,171 @@ class CharityRequestController extends Controller
         return redirect()
             ->route('charity.requests.payment-overview')
             ->with('status', 'Betalergegevens en uitvoeringsdatum zijn tijdelijk opgeslagen.');
+    }
+
+    public function exportPaymentBatch(
+        Request $request,
+        CharityPaymentReadiness $paymentReadiness,
+        CharitySepaXmlBuilder $xmlBuilder,
+    ): RedirectResponse|StreamedResponse {
+        $encryptedDetails = $request->session()->get(CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY);
+
+        if (! is_string($encryptedDetails)) {
+            return back()->withErrors([
+                'export' => 'Vul eerst de betalergegevens en uitvoeringsdatum in.',
+            ]);
+        }
+
+        try {
+            $storedDetails = Crypt::decrypt($encryptedDetails);
+        } catch (DecryptException) {
+            return $this->clearInvalidPaymentDebtorDetails($request);
+        }
+
+        if (! is_array($storedDetails)) {
+            return $this->clearInvalidPaymentDebtorDetails($request);
+        }
+
+        $debtorValidator = Validator::make([
+            'debtor_name' => $storedDetails['name'] ?? null,
+            'debtor_iban' => $storedDetails['iban'] ?? null,
+            'execution_date' => $storedDetails['execution_date'] ?? null,
+        ], [
+            'debtor_name' => ['required', 'string', 'min:2', 'max:'.CharityPaymentReadiness::MAX_SEPA_PARTY_NAME_LENGTH],
+            'debtor_iban' => ['required', 'string', new ValidIban],
+            'execution_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
+        ]);
+
+        if ($debtorValidator->fails()) {
+            return $this->clearInvalidPaymentDebtorDetails($request);
+        }
+
+        $debtorDetails = $debtorValidator->validated();
+        $exportResult = DB::transaction(function () use (
+            $debtorDetails,
+            $paymentReadiness,
+            $xmlBuilder,
+        ): array {
+            // Lock all accepted requests so concurrent export attempts cannot create duplicate batches.
+            $acceptedRequests = CharityRequest::query()
+                ->where('status', CharityRequestStatus::Accepted->value)
+                ->with('eventCost:id,amount')
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get(['id', 'account_name', 'iban', 'charity_event_cost_id']);
+
+            if ($acceptedRequests->isEmpty()) {
+                return ['error' => 'no_requests'];
+            }
+
+            $payments = [];
+            $totalAmountInCents = 0;
+
+            foreach ($acceptedRequests as $charityRequest) {
+                if (! $paymentReadiness->isComplete($charityRequest)) {
+                    return ['error' => 'incomplete'];
+                }
+
+                $amountInCents = $paymentReadiness->amountToCents($charityRequest->eventCost?->amount);
+
+                if ($amountInCents === null || $totalAmountInCents > PHP_INT_MAX - $amountInCents) {
+                    return ['error' => 'invalid_total'];
+                }
+
+                $totalAmountInCents += $amountInCents;
+                $payments[] = [
+                    'request_id' => (int) $charityRequest->getKey(),
+                    'account_name' => $charityRequest->account_name,
+                    'iban' => $charityRequest->iban,
+                    'amount_cents' => $amountInCents,
+                ];
+            }
+
+            $messageId = 'ZP'.strtoupper((string) Str::ulid());
+            $exportedAt = now();
+            $xml = $xmlBuilder->build(
+                $messageId,
+                $payments,
+                $debtorDetails['debtor_name'],
+                $debtorDetails['debtor_iban'],
+                new DateTimeImmutable($debtorDetails['execution_date']),
+                $exportedAt,
+            );
+
+            $batch = CharityPaymentBatch::query()->create([
+                'message_id' => $messageId,
+                'debtor_name' => trim($debtorDetails['debtor_name']),
+                'debtor_iban' => strtoupper((string) preg_replace('/\s+/', '', $debtorDetails['debtor_iban'])),
+                'execution_date' => $debtorDetails['execution_date'],
+                'transaction_count' => count($payments),
+                'total_amount_cents' => $totalAmountInCents,
+                'xml_content' => $xml,
+                'status' => CharityRequestStatus::Exported->value,
+                'exported_at' => $exportedAt,
+            ]);
+
+            $updatedRequestCount = CharityRequest::query()
+                ->whereKey(array_column($payments, 'request_id'))
+                ->where('status', CharityRequestStatus::Accepted->value)
+                ->update([
+                    'charity_payment_batch_id' => $batch->id,
+                    'status' => CharityRequestStatus::Exported->value,
+                    'updated_at' => $exportedAt,
+                ]);
+
+            if ($updatedRequestCount !== count($payments)) {
+                throw new \RuntimeException('The SEPA batch could not be applied to all accepted requests.');
+            }
+
+            return ['batch' => $batch];
+        });
+
+        if (isset($exportResult['error'])) {
+            $message = match ($exportResult['error']) {
+                'no_requests' => 'Er staan geen goedgekeurde aanvragen klaar voor export.',
+                'incomplete' => 'Los eerst de onvolledige goedgekeurde aanvragen op voordat je een export maakt.',
+                default => 'Het totaal van de aanvragen is te groot om veilig te exporteren.',
+            };
+
+            return back()->withErrors(['export' => $message]);
+        }
+
+        $request->session()->forget(CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY);
+
+        return $this->downloadSepaXml($exportResult['batch']);
+    }
+
+    public function downloadPaymentBatch(CharityPaymentBatch $charityPaymentBatch): StreamedResponse
+    {
+        return $this->downloadSepaXml($charityPaymentBatch);
+    }
+
+    private function clearInvalidPaymentDebtorDetails(Request $request): RedirectResponse
+    {
+        $request->session()->forget(CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY);
+
+        return redirect()
+            ->route('charity.requests.payment-overview')
+            ->withErrors(['export' => 'De betalergegevens zijn niet meer geldig. Vul ze opnieuw in.']);
+    }
+
+    private function downloadSepaXml(CharityPaymentBatch $batch): StreamedResponse
+    {
+        $xml = $batch->xml_content;
+
+        abort_unless(is_string($xml) && $xml !== '', 410);
+
+        return response()->streamDownload(
+            static function () use ($xml): void {
+                echo $xml;
+            },
+            'sepa-batch-'.$batch->id.'.xml',
+            [
+                'Cache-Control' => 'no-store, private',
+                'Content-Type' => 'application/xml; charset=UTF-8',
+                'X-Content-Type-Options' => 'nosniff',
+            ],
+        );
     }
 
     public function create(): View

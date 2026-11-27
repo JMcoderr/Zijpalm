@@ -6,7 +6,6 @@ use App\Rules\ValidIban;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Str;
 use InvalidArgumentException;
 use OverflowException;
 use XMLWriter;
@@ -21,12 +20,17 @@ class CharitySepaXmlBuilder
      * @param  list<array{request_id: int, account_name: string, iban: string, amount_cents: int}>  $payments
      */
     public function build(
+        string $messageId,
         array $payments,
         string $debtorName,
         string $debtorIban,
         DateTimeInterface $executionDate,
         DateTimeInterface $createdAt,
     ): string {
+        if (! preg_match('/\A[A-Za-z0-9-]{1,35}\z/', $messageId)) {
+            throw new InvalidArgumentException('The SEPA message ID must contain between 1 and 35 letters, numbers or hyphens.');
+        }
+
         $debtorName = trim($debtorName);
         $debtorIban = $this->normalizeIban($debtorIban);
 
@@ -109,7 +113,6 @@ class CharitySepaXmlBuilder
             ];
         }
 
-        $messageId = 'ZP'.strtoupper((string) Str::ulid());
         $writer = new XMLWriter;
         $writer->openMemory();
         $writer->setIndent(true);

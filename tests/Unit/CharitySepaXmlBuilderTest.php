@@ -5,6 +5,7 @@ use App\Services\CharitySepaXmlBuilder;
 it('builds a SEPA credit transfer document with the correct totals and escaped names', function () {
     $builder = new CharitySepaXmlBuilder;
     $xml = $builder->build(
+        'ZPTEST0001',
         [
             [
                 'request_id' => 12,
@@ -55,6 +56,7 @@ it('builds a SEPA credit transfer document with the correct totals and escaped n
 
 it('rejects SEPA XML input that is incomplete, invalid or duplicated', function (array $payments, string $debtorName, string $debtorIban) {
     (new CharitySepaXmlBuilder)->build(
+        'ZPTEST0001',
         $payments,
         $debtorName,
         $debtorIban,
