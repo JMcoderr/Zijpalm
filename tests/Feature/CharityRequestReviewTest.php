@@ -162,10 +162,16 @@ it('shows only accepted payment details on a private uncached superadmin page', 
     $superadmin->super = now();
     $superadmin->save();
 
-    $this->withSession(charityReviewSession('super@example.test'))
+    $response = $this->withSession(charityReviewSession('super@example.test'))
         ->get(route('charity.requests.payment-overview'))
-        ->assertOk()
-        ->assertHeader('Cache-Control', 'no-store, private')
+        ->assertOk();
+
+    $cacheControl = (string) $response->headers->get('Cache-Control');
+    $cacheDirectives = array_map('trim', explode(',', strtolower($cacheControl)));
+
+    expect($cacheDirectives)->toContain('no-store')->toContain('private');
+
+    $response
         ->assertSee('Aanvraag #'.$acceptedRequest->id)
         ->assertSee('Support event')
         ->assertSee('Example Recipient')
