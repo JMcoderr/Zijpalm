@@ -189,7 +189,9 @@ it('shows only accepted payment details on a private uncached superadmin page', 
         ->assertSee('Second Approved Payee')
         ->assertSee('Voorbereiding SEPA-export')
         ->assertSee(route('charity.requests.payment-details'))
-        ->assertSeeText('Aantal aanvragen klaar: 2')
+        ->assertSeeText('Aantal goedgekeurd: 2')
+        ->assertSeeText('Ontvangergegevens compleet: 2')
+        ->assertSeeText('Ontvangergegevens ontbreken: 0')
         ->assertSee('251,00')
         ->assertSee('125,50')
         ->assertDontSee('Aanvraag #'.$this->request->id)
@@ -203,6 +205,55 @@ it('shows only accepted payment details on a private uncached superadmin page', 
     expect($acceptedRequest->fresh()->status)->toBe(CharityRequestStatus::Accepted)
         ->and($secondAcceptedRequest->fresh()->status)->toBe(CharityRequestStatus::Accepted)
         ->and($exportedRequest->fresh()->status)->toBe(CharityRequestStatus::Exported);
+});
+
+it('flags accepted requests with missing recipient details before export', function () {
+    $this->request->forceFill(['status' => CharityRequestStatus::Accepted])->save();
+
+    $missingIbanRequest = CharityRequest::create([
+        'requester_email' => 'missing-iban@example.test',
+        'charity_member_id' => $this->member->id,
+        'charity_event_cost_id' => $this->eventCost->id,
+        'account_name' => 'Missing IBAN',
+        'iban' => null,
+    ]);
+    $missingIbanRequest->forceFill(['status' => CharityRequestStatus::Accepted])->save();
+
+    $missingNameRequest = CharityRequest::create([
+        'requester_email' => 'missing-name@example.test',
+        'charity_member_id' => $this->member->id,
+        'charity_event_cost_id' => $this->eventCost->id,
+        'account_name' => null,
+        'iban' => 'BE68539007547034',
+    ]);
+    $missingNameRequest->forceFill(['status' => CharityRequestStatus::Accepted])->save();
+
+    $blankNameRequest = CharityRequest::create([
+        'requester_email' => 'blank-name@example.test',
+        'charity_member_id' => $this->member->id,
+        'charity_event_cost_id' => $this->eventCost->id,
+        'account_name' => '   ',
+        'iban' => 'BE68539007547034',
+    ]);
+    $blankNameRequest->forceFill(['status' => CharityRequestStatus::Accepted])->save();
+
+    $superadmin = CharityAdmin::create(['employee' => 'super@example.test']);
+    $superadmin->super = now();
+    $superadmin->save();
+
+    $this->withSession(charityReviewSession('super@example.test'))
+        ->get(route('charity.requests.payment-overview'))
+        ->assertOk()
+        ->assertSeeText('Aantal goedgekeurd: 4')
+        ->assertSeeText('Ontvangergegevens compleet: 1')
+        ->assertSeeText('Ontvangergegevens ontbreken: 3')
+        ->assertSeeText('Er ontbreken ontvangergegevens.')
+        ->assertSee('IBAN: Niet ingevuld');
+
+    expect($this->request->fresh()->status)->toBe(CharityRequestStatus::Accepted)
+        ->and($missingIbanRequest->fresh()->status)->toBe(CharityRequestStatus::Accepted)
+        ->and($missingNameRequest->fresh()->status)->toBe(CharityRequestStatus::Accepted)
+        ->and($blankNameRequest->fresh()->status)->toBe(CharityRequestStatus::Accepted);
 });
 
 it('stores validated debtor details encrypted in the superadmin session', function () {

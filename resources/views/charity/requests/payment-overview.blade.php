@@ -69,11 +69,22 @@
         <section class="space-y-2 rounded-lg bg-zinc-50 p-4" aria-labelledby="payment-summary-title">
             <h2 id="payment-summary-title" class="font-semibold text-zinc-900">Samenvatting voor export</h2>
             <p class="text-sm text-zinc-700">
-                Aantal aanvragen klaar: {{ $requests->total() }}
+                Aantal goedgekeurd: {{ $acceptedRequestCount }}
+            </p>
+            <p class="text-sm text-zinc-700">
+                Ontvangergegevens compleet: {{ $requestsWithRecipientDetailsCount }}
+            </p>
+            <p class="text-sm text-zinc-700">
+                Ontvangergegevens ontbreken: {{ $requestsMissingRecipientDetailsCount }}
             </p>
             <p class="text-sm text-zinc-700">
                 Totaalbedrag: &euro; {{ number_format((float) $acceptedTotal, 2, ',', '.') }}
             </p>
+            @if ($requestsMissingRecipientDetailsCount > 0)
+                <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900" role="alert">
+                    Er ontbreken ontvangergegevens. Controleer de goedgekeurde aanvragen hieronder voordat een exportbestand wordt gemaakt.
+                </p>
+            @endif
             <p class="text-sm text-zinc-600">
                 Dit is alleen een controle op goedgekeurde aanvragen. Er wordt nog geen exportbestand gemaakt en de status blijft hetzelfde.
             </p>
