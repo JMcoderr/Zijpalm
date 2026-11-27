@@ -119,6 +119,7 @@ class CharityRequestController extends Controller
                 'total_amount_cents',
                 'status',
                 'exported_at',
+                'paid_at',
             ])
             ->orderByDesc('exported_at')
             ->limit(10)
@@ -315,6 +316,83 @@ class CharityRequestController extends Controller
     public function downloadPaymentBatch(CharityPaymentBatch $charityPaymentBatch): StreamedResponse
     {
         return $this->downloadSepaXml($charityPaymentBatch);
+    }
+
+    public function confirmPaymentBatch(CharityPaymentBatch $charityPaymentBatch): RedirectResponse
+    {
+        $batchId = $charityPaymentBatch->getKey();
+        $paidAt = now();
+
+        $paymentResult = DB::transaction(function () use ($batchId, $paidAt): array {
+            $batch = CharityPaymentBatch::query()
+                ->whereKey($batchId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($batch->status !== CharityRequestStatus::Exported->value || $batch->paid_at !== null) {
+                return ['error' => 'batch_not_exported'];
+            }
+
+            $batchRequests = CharityRequest::query()
+                ->where('charity_payment_batch_id', $batch->id)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get(['id', 'status']);
+
+            if (
+                $batchRequests->count() !== $batch->transaction_count
+                || $batchRequests->contains(
+                    static fn (CharityRequest $charityRequest): bool => $charityRequest->status !== CharityRequestStatus::Exported
+                )
+            ) {
+                return ['error' => 'requests_do_not_match'];
+            }
+
+            $updatedRequestCount = CharityRequest::query()
+                ->where('charity_payment_batch_id', $batch->id)
+                ->where('status', CharityRequestStatus::Exported->value)
+                ->update([
+                    'status' => CharityRequestStatus::Paid->value,
+                    'paid_at' => $paidAt,
+                    'account_name' => null,
+                    'iban' => null,
+                    'updated_at' => $paidAt,
+                ]);
+
+            if ($updatedRequestCount !== $batchRequests->count()) {
+                throw new \RuntimeException('The confirmed SEPA batch could not be applied to all its requests.');
+            }
+
+            // The bank data and XML are no longer needed once the batch is confirmed as paid.
+            $batch->forceFill([
+                'status' => CharityRequestStatus::Paid->value,
+                'paid_at' => $paidAt,
+                'debtor_name' => null,
+                'debtor_iban' => null,
+                'xml_content' => null,
+            ]);
+
+            if (! $batch->save()) {
+                throw new \RuntimeException('The confirmed SEPA batch could not be saved.');
+            }
+
+            return ['batch_id' => $batch->id];
+        });
+
+        if (isset($paymentResult['error'])) {
+            $message = match ($paymentResult['error']) {
+                'batch_not_exported' => 'Deze batch is al verwerkt of kan niet als betaald worden bevestigd.',
+                default => 'De aanvragen in deze batch komen niet meer overeen. De betaling is niet bevestigd.',
+            };
+
+            return redirect()
+                ->route('charity.requests.payment-overview')
+                ->withErrors(['payment' => $message]);
+        }
+
+        return redirect()
+            ->route('charity.requests.payment-overview')
+            ->with('status', 'Betaling bevestigd. De bankgegevens zijn uit de applicatie verwijderd.');
     }
 
     private function clearInvalidPaymentDebtorDetails(Request $request): RedirectResponse

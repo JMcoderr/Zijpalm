@@ -17,6 +17,7 @@ class CharityPaymentBatch extends Model
         'xml_content',
         'status',
         'exported_at',
+        'paid_at',
     ];
 
     protected $hidden = [
@@ -33,6 +34,7 @@ class CharityPaymentBatch extends Model
         'total_amount_cents' => 'integer',
         'xml_content' => 'encrypted',
         'exported_at' => 'immutable_datetime',
+        'paid_at' => 'immutable_datetime',
     ];
 
     public function requests(): HasMany

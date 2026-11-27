@@ -5,11 +5,18 @@
             :description="__('Goedgekeurde aanvragen die klaarstaan voor verdere verwerking.')"
         />
 
+        @if (session('status'))
+            <p class="rounded-lg bg-green-50 p-3 text-sm text-green-900" role="status">{{ session('status') }}</p>
+        @endif
+
         <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900" role="note">
-            Een export voert geen betaling uit. Aanvragen krijgen na het maken van het XML-bestand de status geëxporteerd, niet betaald.
+            Een export voert geen betaling uit en zet aanvragen op geëxporteerd. Bevestig een batch pas nadat de bank deze heeft verwerkt; daarna wordt de status betaald en worden de bankgegevens en het XML-bestand verwijderd.
         </p>
 
         @error('export')
+            <p class="rounded-lg bg-red-50 p-3 text-sm text-red-800" role="alert">{{ $message }}</p>
+        @enderror
+        @error('payment')
             <p class="rounded-lg bg-red-50 p-3 text-sm text-red-800" role="alert">{{ $message }}</p>
         @enderror
 
@@ -124,23 +131,52 @@
         @endif
 
         <section class="space-y-3 rounded-lg border border-zinc-200 p-4" aria-labelledby="payment-batches-title">
-            <h2 id="payment-batches-title" class="font-semibold text-zinc-900">Recente exports</h2>
+            <h2 id="payment-batches-title" class="font-semibold text-zinc-900">Recente betaalbatches</h2>
             @if ($paymentBatches->isEmpty())
-                <p class="text-sm text-zinc-700">Er zijn nog geen SEPA-exports gemaakt.</p>
+                <p class="text-sm text-zinc-700">Er zijn nog geen betaalbatches gemaakt.</p>
             @else
                 @foreach ($paymentBatches as $batch)
                     <article class="flex flex-col gap-2 border-t border-zinc-200 pt-3 sm:flex-row sm:items-center sm:justify-between">
                         <div class="text-sm text-zinc-700">
                             <p>Batch #{{ $batch->id }} - {{ $batch->transaction_count }} betalingen</p>
                             <p>Uitvoerdatum: {{ $batch->execution_date->format('d-m-Y') }} - Totaal: &euro; {{ number_format($batch->total_amount_cents / 100, 2, ',', '.') }}</p>
-                            <p>Gemaakt: {{ $batch->exported_at->format('d-m-Y H:i') }} - Status: {{ $batch->status === 'exported' ? 'Geëxporteerd' : $batch->status }}</p>
+                            <p>Gemaakt: {{ $batch->exported_at->format('d-m-Y H:i') }} - Status:
+                                @if ($batch->status === 'exported')
+                                    Geëxporteerd
+                                @elseif ($batch->status === 'paid')
+                                    Betaald
+                                @else
+                                    {{ $batch->status }}
+                                @endif
+                            </p>
+                            @if ($batch->paid_at)
+                                <p>Betaling bevestigd: {{ $batch->paid_at->format('d-m-Y H:i') }}</p>
+                                <p>De bankgegevens en het XML-bestand zijn na de bevestiging verwijderd.</p>
+                            @endif
                         </div>
-                        <a
-                            href="{{ route('charity.requests.payment-batches.download', $batch) }}"
-                            class="inline-flex items-center justify-center rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
-                        >
-                            XML opnieuw downloaden
-                        </a>
+                        @if ($batch->status === 'exported')
+                            <div class="flex flex-col gap-2 sm:items-end">
+                                <a
+                                    href="{{ route('charity.requests.payment-batches.download', $batch) }}"
+                                    class="inline-flex items-center justify-center rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
+                                >
+                                    XML opnieuw downloaden
+                                </a>
+                                <form
+                                    method="post"
+                                    action="{{ route('charity.requests.payment-batches.confirm', $batch) }}"
+                                    onsubmit="return confirm('Bevestig alleen als de bank de betaling heeft verwerkt. Daarna worden de bankgegevens en het XML-bestand uit de applicatie verwijderd.')"
+                                >
+                                    @csrf
+                                    <button
+                                        type="submit"
+                                        class="inline-flex items-center justify-center rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+                                    >
+                                        Bankbetaling bevestigen
+                                    </button>
+                                </form>
+                            </div>
+                        @endif
                     </article>
                 @endforeach
             @endif

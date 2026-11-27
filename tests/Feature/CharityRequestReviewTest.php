@@ -585,6 +585,136 @@ it('rejects expired payer details and keeps batch downloads superadmin-only', fu
         ->and(CharityPaymentBatch::query()->count())->toBe(1);
 });
 
+it('confirms an exported batch as paid and clears its bank details and XML', function () {
+    $superadmin = CharityAdmin::create(['employee' => 'super@example.test']);
+    $superadmin->super = now();
+    $superadmin->save();
+
+    $batch = CharityPaymentBatch::query()->create([
+        'message_id' => 'ZPPAIDBATCH',
+        'debtor_name' => 'Zijpalm Vereniging',
+        'debtor_iban' => 'NL91ABNA0417164300',
+        'execution_date' => now()->addDays(3)->toDateString(),
+        'transaction_count' => 1,
+        'total_amount_cents' => 12550,
+        'xml_content' => '<xml>Private IBAN</xml>',
+        'status' => CharityRequestStatus::Exported->value,
+        'exported_at' => now(),
+    ]);
+
+    $this->request->forceFill([
+        'charity_payment_batch_id' => $batch->id,
+        'status' => CharityRequestStatus::Exported,
+    ])->save();
+
+    $this->from(route('charity.requests.payment-overview'))
+        ->withSession(charityReviewSession('super@example.test'))
+        ->post(route('charity.requests.payment-batches.confirm', $batch))
+        ->assertRedirect(route('charity.requests.payment-overview'))
+        ->assertSessionHas('status', 'Betaling bevestigd. De bankgegevens zijn uit de applicatie verwijderd.');
+
+    $paidBatch = $batch->fresh();
+    $paidRequest = $this->request->fresh();
+    $storedBatch = DB::table('charity_payment_batches')->where('id', $batch->id)->first();
+
+    expect($paidBatch->status)->toBe(CharityRequestStatus::Paid->value)
+        ->and($paidBatch->paid_at)->not->toBeNull()
+        ->and($paidBatch->debtor_name)->toBeNull()
+        ->and($paidBatch->debtor_iban)->toBeNull()
+        ->and($paidBatch->xml_content)->toBeNull()
+        ->and($paidRequest->status)->toBe(CharityRequestStatus::Paid)
+        ->and($paidRequest->paid_at?->equalTo($paidBatch->paid_at))->toBeTrue()
+        ->and($paidRequest->account_name)->toBeNull()
+        ->and($paidRequest->iban)->toBeNull()
+        ->and($storedBatch->debtor_name)->toBeNull()
+        ->and($storedBatch->debtor_iban)->toBeNull()
+        ->and($storedBatch->xml_content)->toBeNull();
+
+    $this->withSession(charityReviewSession('super@example.test'))
+        ->get(route('charity.requests.payment-batches.download', $batch))
+        ->assertGone();
+
+    $this->withSession(charityReviewSession('super@example.test'))
+        ->get(route('charity.requests.payment-overview'))
+        ->assertOk()
+        ->assertSeeText('Betaald')
+        ->assertSeeText('De bankgegevens en het XML-bestand zijn na de bevestiging verwijderd.')
+        ->assertDontSee('Private Account')
+        ->assertDontSee('NL91ABNA0417164300')
+        ->assertDontSee(route('charity.requests.payment-batches.download', $batch));
+
+    $this->from(route('charity.requests.payment-overview'))
+        ->withSession(charityReviewSession('super@example.test'))
+        ->post(route('charity.requests.payment-batches.confirm', $batch))
+        ->assertRedirect(route('charity.requests.payment-overview'))
+        ->assertSessionHasErrors('payment');
+
+    expect($batch->fresh()->status)->toBe(CharityRequestStatus::Paid->value)
+        ->and($this->request->fresh()->status)->toBe(CharityRequestStatus::Paid);
+});
+
+it('does not let a regular charity admin confirm a payment batch', function () {
+    CharityAdmin::create(['employee' => 'admin@example.test']);
+
+    $batch = CharityPaymentBatch::query()->create([
+        'message_id' => 'ZPREGULARADMIN',
+        'debtor_name' => 'Zijpalm Vereniging',
+        'debtor_iban' => 'NL91ABNA0417164300',
+        'execution_date' => now()->addDays(3)->toDateString(),
+        'transaction_count' => 1,
+        'total_amount_cents' => 12550,
+        'xml_content' => '<xml/>',
+        'status' => CharityRequestStatus::Exported->value,
+        'exported_at' => now(),
+    ]);
+    $this->request->forceFill([
+        'charity_payment_batch_id' => $batch->id,
+        'status' => CharityRequestStatus::Exported,
+    ])->save();
+
+    $this->withSession(charityReviewSession())
+        ->post(route('charity.requests.payment-batches.confirm', $batch))
+        ->assertForbidden();
+
+    expect($batch->fresh()->status)->toBe(CharityRequestStatus::Exported->value)
+        ->and($this->request->fresh()->status)->toBe(CharityRequestStatus::Exported)
+        ->and($this->request->fresh()->iban)->toBe('NL91ABNA0417164300');
+});
+
+it('does not confirm a batch if its attached requests no longer match the export', function () {
+    $superadmin = CharityAdmin::create(['employee' => 'super@example.test']);
+    $superadmin->super = now();
+    $superadmin->save();
+
+    $batch = CharityPaymentBatch::query()->create([
+        'message_id' => 'ZPMISMATCHED',
+        'debtor_name' => 'Zijpalm Vereniging',
+        'debtor_iban' => 'NL91ABNA0417164300',
+        'execution_date' => now()->addDays(3)->toDateString(),
+        'transaction_count' => 2,
+        'total_amount_cents' => 25100,
+        'xml_content' => '<xml/>',
+        'status' => CharityRequestStatus::Exported->value,
+        'exported_at' => now(),
+    ]);
+    $this->request->forceFill([
+        'charity_payment_batch_id' => $batch->id,
+        'status' => CharityRequestStatus::Exported,
+    ])->save();
+
+    $this->from(route('charity.requests.payment-overview'))
+        ->withSession(charityReviewSession('super@example.test'))
+        ->post(route('charity.requests.payment-batches.confirm', $batch))
+        ->assertRedirect(route('charity.requests.payment-overview'))
+        ->assertSessionHasErrors('payment');
+
+    expect($batch->fresh()->status)->toBe(CharityRequestStatus::Exported->value)
+        ->and($batch->fresh()->xml_content)->toBe('<xml/>')
+        ->and($this->request->fresh()->status)->toBe(CharityRequestStatus::Exported)
+        ->and($this->request->fresh()->iban)->toBe('NL91ABNA0417164300')
+        ->and($this->request->fresh()->paid_at)->toBeNull();
+});
+
 it('allows an admin to accept a pending request', function () {
     CharityAdmin::create(['employee' => 'admin@example.test']);
 
