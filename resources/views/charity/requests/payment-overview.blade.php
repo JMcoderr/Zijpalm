@@ -32,7 +32,6 @@
                     id="debtor_name"
                     name="debtor_name"
                     type="text"
-                    value="{{ old('debtor_name') }}"
                     maxlength="70"
                     autocomplete="organization"
                     required
@@ -92,14 +91,14 @@
                 Ontvangergegevens en bedrag geldig: {{ $requestsWithValidRecipientAndAmountCount }}
             </p>
             <p class="text-sm text-zinc-700">
-                Ontvangergegevens ontbreken of bedrag ongeldig: {{ $requestsWithIncompletePaymentDetailsCount }}
+                Ontvangergegevens of bedrag onvolledig of ongeldig: {{ $requestsWithIncompletePaymentDetailsCount }}
             </p>
             <p class="text-sm text-zinc-700">
                 Totaal van complete betalingen: &euro; {{ $paymentReadyTotal }}
             </p>
             @if ($requestsWithIncompletePaymentDetailsCount > 0)
                 <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900" role="alert">
-                    Een ontvangergegeven ontbreekt, een IBAN klopt niet of een bedrag is nul of negatief. Controleer de goedgekeurde aanvragen hieronder voordat een exportbestand wordt gemaakt.
+                    Controleer of de rekeningnaam is ingevuld en maximaal 70 tekens heeft, het IBAN geldig is en het bedrag hoger is dan nul.
                 </p>
             @endif
             <p class="text-sm text-zinc-600">

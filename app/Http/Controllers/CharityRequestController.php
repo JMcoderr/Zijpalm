@@ -175,9 +175,10 @@ class CharityRequestController extends Controller
         $request->session()->forget(CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY);
 
         if ($validator->fails()) {
+            // Only keep the date; old input is not encrypted by this form.
             return back()
                 ->withErrors($validator)
-                ->withInput($request->except('debtor_iban'));
+                ->withInput($validator->errors()->has('execution_date') ? [] : $request->only('execution_date'));
         }
 
         $validated = $validator->validated();

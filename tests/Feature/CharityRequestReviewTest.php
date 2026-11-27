@@ -192,7 +192,7 @@ it('shows only accepted payment details on a private uncached superadmin page', 
         ->assertSee(route('charity.requests.payment-details'))
         ->assertSeeText('Aantal goedgekeurd: 2')
         ->assertSeeText('Ontvangergegevens en bedrag geldig: 2')
-        ->assertSeeText('Ontvangergegevens ontbreken of bedrag ongeldig: 0')
+        ->assertSeeText('Ontvangergegevens of bedrag onvolledig of ongeldig: 0')
         ->assertSee('251,00')
         ->assertSee('125,50')
         ->assertDontSee('Aanvraag #'.$this->request->id)
@@ -293,8 +293,8 @@ it('flags accepted requests with incomplete payment details before export', func
         ->assertOk()
         ->assertSeeText('Aantal goedgekeurd: 8')
         ->assertSeeText('Ontvangergegevens en bedrag geldig: 1')
-        ->assertSeeText('Ontvangergegevens ontbreken of bedrag ongeldig: 7')
-        ->assertSeeText('Een ontvangergegeven ontbreekt, een IBAN klopt niet of een bedrag is nul of negatief.')
+        ->assertSeeText('Ontvangergegevens of bedrag onvolledig of ongeldig: 7')
+        ->assertSeeText('Controleer of de rekeningnaam is ingevuld en maximaal 70 tekens heeft')
         ->assertSee('IBAN: Niet ingevuld');
 
     expect(substr_count($response->getContent(), 'Gegevens compleet; meegenomen in het totaal.'))->toBe(1)
@@ -341,7 +341,7 @@ it('totals only accepted requests with complete positive payment details', funct
         ->assertOk()
         ->assertSeeText('Aantal goedgekeurd: 3')
         ->assertSeeText('Ontvangergegevens en bedrag geldig: 2')
-        ->assertSeeText('Ontvangergegevens ontbreken of bedrag ongeldig: 1')
+        ->assertSeeText('Ontvangergegevens of bedrag onvolledig of ongeldig: 1')
         ->assertSeeText('Totaal van complete betalingen:')
         ->assertSee('31,55');
 });
@@ -387,12 +387,13 @@ it('stores validated debtor details encrypted in the superadmin session', functi
         ->assertDontSee($iban);
 });
 
-it('does not keep previous debtor details or flash an invalid iban', function () {
+it('clears previous debtor details and only keeps a valid execution date on errors', function (bool $validDate) {
     $superadmin = CharityAdmin::create(['employee' => 'super@example.test']);
     $superadmin->super = now();
     $superadmin->save();
+    $executionDate = now()->addDays($validDate ? 1 : -1)->toDateString();
 
-    $this->from(route('charity.requests.payment-overview'))
+    $response = $this->from(route('charity.requests.payment-overview'))
         ->withSession([
             ...charityReviewSession('super@example.test'),
             CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY => Crypt::encrypt([
@@ -401,15 +402,30 @@ it('does not keep previous debtor details or flash an invalid iban', function ()
             ]),
         ])
         ->post(route('charity.requests.payment-details'), [
-            'debtor_name' => ' ',
+            'debtor_name' => 'Example Payer',
             'debtor_iban' => 'NL00ABNA0417164300',
-            'execution_date' => now()->subDay()->toDateString(),
+            'execution_date' => $executionDate,
         ])
         ->assertRedirect(route('charity.requests.payment-overview'))
-        ->assertSessionHasErrors(['debtor_name', 'debtor_iban', 'execution_date'])
+        ->assertSessionHasErrors('debtor_iban')
         ->assertSessionMissing(CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY)
+        ->assertSessionMissing('_old_input.debtor_name')
         ->assertSessionMissing('_old_input.debtor_iban');
-});
+
+    if ($validDate) {
+        $response->assertSessionHas('_old_input', ['execution_date' => $executionDate]);
+    } else {
+        $response->assertSessionHasErrors('execution_date')
+            ->assertSessionMissing('_old_input.execution_date');
+    }
+
+    $this->get(route('charity.requests.payment-overview'))
+        ->assertOk()
+        ->assertDontSee('Example Payer');
+})->with([
+    'future date' => true,
+    'past date' => false,
+]);
 
 it('allows an admin to accept a pending request', function () {
     CharityAdmin::create(['employee' => 'admin@example.test']);
