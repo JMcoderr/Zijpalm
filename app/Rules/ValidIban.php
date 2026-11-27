@@ -9,17 +9,21 @@ class ValidIban implements ValidationRule
 {
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        if (! is_string($value)) {
+        if (! $this->isValid($value)) {
             $fail('Vul een geldig IBAN in.');
+        }
+    }
 
-            return;
+    public function isValid(mixed $value): bool
+    {
+        if (! is_string($value)) {
+            return false;
         }
 
         $iban = strtoupper((string) preg_replace('/\s+/', '', $value));
 
-        if (preg_match('/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/', $iban) !== 1 || ! $this->hasValidChecksum($iban)) {
-            $fail('Vul een geldig IBAN in.');
-        }
+        return preg_match('/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/', $iban) === 1
+            && $this->hasValidChecksum($iban);
     }
 
     private function hasValidChecksum(string $iban): bool
