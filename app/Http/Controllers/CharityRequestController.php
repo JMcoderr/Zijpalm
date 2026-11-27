@@ -16,9 +16,11 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
 class CharityRequestController extends Controller
 {
@@ -284,16 +286,29 @@ class CharityRequestController extends Controller
             ]);
         }
 
-        // Notify the requester only after the review decision has been committed.
-        Mail::to($charityRequest->requester_email)->send(new CharityRequestReviewedMail(
-            approved: $status === CharityRequestStatus::Accepted,
-            reason: $reason,
-        ));
-
-        return redirect()
+        $response = redirect()
             ->route('charity.requests.review')
             ->with('status', $status === CharityRequestStatus::Accepted
                 ? 'Aanvraag goedgekeurd.'
                 : 'Aanvraag afgewezen.');
+
+        // The decision is already saved, even if the mail server is unavailable.
+        try {
+            Mail::to($charityRequest->requester_email)->send(new CharityRequestReviewedMail(
+                approved: $status === CharityRequestStatus::Accepted,
+                reason: $reason,
+            ));
+        } catch (TransportExceptionInterface $exception) {
+            Log::warning('Lief & Leed review notification failed.', [
+                'charity_request_id' => $charityRequest->getKey(),
+                'error_type' => $exception::class,
+            ]);
+
+            $response->withErrors([
+                'notification' => 'De beoordeling is opgeslagen, maar de e-mail kon niet worden verstuurd.',
+            ]);
+        }
+
+        return $response;
     }
 }

@@ -11,6 +11,7 @@ use App\Services\CharitySessionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Mail;
+use Symfony\Component\Mailer\Exception\TransportException;
 
 uses(RefreshDatabase::class);
 
@@ -342,6 +343,25 @@ it('allows an admin to accept a pending request', function () {
             && ! str_contains($body, 'Private Account');
     });
     Mail::assertSentCount(1);
+});
+
+it('shows that the decision was saved when the review email fails', function () {
+    CharityAdmin::create(['employee' => 'admin@example.test']);
+    Mail::shouldReceive('to->send')->once()->andThrow(new TransportException('Mail server unavailable'));
+
+    $this->withSession(charityReviewSession())
+        ->patch(route('charity.requests.review.update', $this->request), [
+            'status' => CharityRequestStatus::Accepted->value,
+        ])
+        ->assertRedirect(route('charity.requests.review'))
+        ->assertSessionHas('status', 'Aanvraag goedgekeurd.')
+        ->assertSessionHasErrors(['notification' => 'De beoordeling is opgeslagen, maar de e-mail kon niet worden verstuurd.']);
+
+    $this->get(route('charity.requests.review'))
+        ->assertOk()
+        ->assertSeeText('De beoordeling is opgeslagen, maar de e-mail kon niet worden verstuurd.');
+
+    expect($this->request->fresh()->status)->toBe(CharityRequestStatus::Accepted);
 });
 
 it('rejects a pending request and clears its bank details', function () {

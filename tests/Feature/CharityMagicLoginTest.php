@@ -107,6 +107,20 @@ it('creates an independent session and rejects replayed or modified links', func
     $this->post($sentMail->url)->assertForbidden();
 });
 
+it('clears saved payer details when a new Lief & Leed login is confirmed', function () {
+    $magicLink = app(CharityMagicLinkService::class);
+    $email = 'another@example.test';
+    $url = $magicLink->createSignedUrl($email, $magicLink->issueToken($email));
+
+    $this->withSession([
+        'charity_magic' => ['email' => 'employee@example.test', 'expires_at' => now()->addHour()->timestamp],
+        CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY => 'previously-encrypted-details',
+    ])->post($url)
+        ->assertRedirect(route('charity.login'))
+        ->assertSessionHas('charity_magic.email', $email)
+        ->assertSessionMissing(CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY);
+});
+
 it('does not let the request limit block a valid confirmation', function () {
     Mail::fake();
 
