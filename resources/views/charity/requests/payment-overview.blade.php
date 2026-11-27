@@ -89,17 +89,17 @@
                 Aantal goedgekeurd: {{ $acceptedRequestCount }}
             </p>
             <p class="text-sm text-zinc-700">
-                Ontvangergegevens compleet: {{ $requestsWithRecipientDetailsCount }}
+                Ontvangergegevens compleet: {{ $requestsWithCompleteRecipientDetailsCount }}
             </p>
             <p class="text-sm text-zinc-700">
-                Ontvangergegevens ontbreken: {{ $requestsMissingRecipientDetailsCount }}
+                Ontvangergegevens onvolledig of ongeldig: {{ $requestsWithIncompleteRecipientDetailsCount }}
             </p>
             <p class="text-sm text-zinc-700">
                 Totaalbedrag: &euro; {{ number_format((float) $acceptedTotal, 2, ',', '.') }}
             </p>
-            @if ($requestsMissingRecipientDetailsCount > 0)
+            @if ($requestsWithIncompleteRecipientDetailsCount > 0)
                 <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900" role="alert">
-                    Er ontbreken ontvangergegevens. Controleer de goedgekeurde aanvragen hieronder voordat een exportbestand wordt gemaakt.
+                    Er ontbreken ontvangergegevens of een IBAN klopt niet. Controleer de goedgekeurde aanvragen hieronder voordat een exportbestand wordt gemaakt.
                 </p>
             @endif
             <p class="text-sm text-zinc-600">

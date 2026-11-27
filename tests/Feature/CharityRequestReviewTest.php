@@ -192,7 +192,7 @@ it('shows only accepted payment details on a private uncached superadmin page', 
         ->assertSee(route('charity.requests.payment-details'))
         ->assertSeeText('Aantal goedgekeurd: 2')
         ->assertSeeText('Ontvangergegevens compleet: 2')
-        ->assertSeeText('Ontvangergegevens ontbreken: 0')
+        ->assertSeeText('Ontvangergegevens onvolledig of ongeldig: 0')
         ->assertSee('251,00')
         ->assertSee('125,50')
         ->assertDontSee('Aanvraag #'.$this->request->id)
@@ -238,6 +238,15 @@ it('flags accepted requests with missing recipient details before export', funct
     ]);
     $blankNameRequest->forceFill(['status' => CharityRequestStatus::Accepted])->save();
 
+    $invalidIbanRequest = CharityRequest::create([
+        'requester_email' => 'invalid-iban@example.test',
+        'charity_member_id' => $this->member->id,
+        'charity_event_cost_id' => $this->eventCost->id,
+        'account_name' => 'Invalid IBAN',
+        'iban' => 'NL00ABNA0417164300',
+    ]);
+    $invalidIbanRequest->forceFill(['status' => CharityRequestStatus::Accepted])->save();
+
     $superadmin = CharityAdmin::create(['employee' => 'super@example.test']);
     $superadmin->super = now();
     $superadmin->save();
@@ -245,16 +254,17 @@ it('flags accepted requests with missing recipient details before export', funct
     $this->withSession(charityReviewSession('super@example.test'))
         ->get(route('charity.requests.payment-overview'))
         ->assertOk()
-        ->assertSeeText('Aantal goedgekeurd: 4')
+        ->assertSeeText('Aantal goedgekeurd: 5')
         ->assertSeeText('Ontvangergegevens compleet: 1')
-        ->assertSeeText('Ontvangergegevens ontbreken: 3')
-        ->assertSeeText('Er ontbreken ontvangergegevens.')
+        ->assertSeeText('Ontvangergegevens onvolledig of ongeldig: 4')
+        ->assertSeeText('Er ontbreken ontvangergegevens of een IBAN klopt niet.')
         ->assertSee('IBAN: Niet ingevuld');
 
     expect($this->request->fresh()->status)->toBe(CharityRequestStatus::Accepted)
         ->and($missingIbanRequest->fresh()->status)->toBe(CharityRequestStatus::Accepted)
         ->and($missingNameRequest->fresh()->status)->toBe(CharityRequestStatus::Accepted)
-        ->and($blankNameRequest->fresh()->status)->toBe(CharityRequestStatus::Accepted);
+        ->and($blankNameRequest->fresh()->status)->toBe(CharityRequestStatus::Accepted)
+        ->and($invalidIbanRequest->fresh()->status)->toBe(CharityRequestStatus::Accepted);
 });
 
 it('stores validated debtor details encrypted in the superadmin session', function () {
