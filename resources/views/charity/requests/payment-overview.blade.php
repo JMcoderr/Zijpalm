@@ -66,6 +66,19 @@
             </button>
         </form>
 
+        <section class="space-y-2 rounded-lg bg-zinc-50 p-4" aria-labelledby="payment-summary-title">
+            <h2 id="payment-summary-title" class="font-semibold text-zinc-900">Samenvatting voor export</h2>
+            <p class="text-sm text-zinc-700">
+                Aantal aanvragen klaar: {{ $requests->total() }}
+            </p>
+            <p class="text-sm text-zinc-700">
+                Totaalbedrag: &euro; {{ number_format((float) $acceptedTotal, 2, ',', '.') }}
+            </p>
+            <p class="text-sm text-zinc-600">
+                Dit is alleen een controle op goedgekeurde aanvragen. Er wordt nog geen exportbestand gemaakt en de status blijft hetzelfde.
+            </p>
+        </section>
+
         @if ($requests->count() === 0)
             <p class="rounded-lg bg-zinc-50 p-3 text-sm text-zinc-700" role="status">
                 Er staan geen goedgekeurde aanvragen klaar.

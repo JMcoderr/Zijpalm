@@ -51,7 +51,10 @@ class CharityRequestController extends Controller
     public function paymentOverview(Request $request): Response
     {
         // Bank details are only loaded for the superadmin-only payment overview.
-        $requests = CharityRequest::query()
+        $acceptedRequests = CharityRequest::query()
+            ->where('status', CharityRequestStatus::Accepted->value);
+
+        $requests = (clone $acceptedRequests)
             ->select([
                 'id',
                 'account_name',
@@ -60,7 +63,6 @@ class CharityRequestController extends Controller
                 'charity_event_cost_id',
                 'created_at',
             ])
-            ->where('status', CharityRequestStatus::Accepted->value)
             ->with([
                 'member' => static fn ($query) => $query->withTrashed()->select(['id', 'full_name', 'name']),
                 'eventCost:id,charity_event_id,amount',
@@ -69,9 +71,14 @@ class CharityRequestController extends Controller
             ->orderBy('created_at')
             ->paginate(15);
 
+        $acceptedTotal = (clone $acceptedRequests)
+            ->join('charity_event_costs', 'charity_requests.charity_event_cost_id', '=', 'charity_event_costs.id')
+            ->sum('charity_event_costs.amount');
+
         return response()
             ->view('charity.requests.payment-overview', [
                 'requests' => $requests,
+                'acceptedTotal' => $acceptedTotal,
                 'hasPaymentDebtorDetails' => $request->session()->has(
                     CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY
                 ),

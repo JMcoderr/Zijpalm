@@ -149,6 +149,15 @@ it('shows only accepted payment details on a private uncached superadmin page', 
     ]);
     $acceptedRequest->forceFill(['status' => CharityRequestStatus::Accepted])->save();
 
+    $secondAcceptedRequest = CharityRequest::create([
+        'requester_email' => 'third-employee@example.test',
+        'charity_member_id' => $this->member->id,
+        'charity_event_cost_id' => $this->eventCost->id,
+        'account_name' => 'Second Approved Payee',
+        'iban' => 'BE68539007547034',
+    ]);
+    $secondAcceptedRequest->forceFill(['status' => CharityRequestStatus::Accepted])->save();
+
     $exportedRequest = CharityRequest::create([
         'requester_email' => 'another-employee@example.test',
         'charity_member_id' => $this->member->id,
@@ -177,8 +186,11 @@ it('shows only accepted payment details on a private uncached superadmin page', 
         ->assertSee('Example Recipient')
         ->assertSee('Approved Payee')
         ->assertSee('GB82WEST12345698765432')
+        ->assertSee('Second Approved Payee')
         ->assertSee('Voorbereiding SEPA-export')
         ->assertSee(route('charity.requests.payment-details'))
+        ->assertSeeText('Aantal aanvragen klaar: 2')
+        ->assertSee('251,00')
         ->assertSee('125,50')
         ->assertDontSee('Aanvraag #'.$this->request->id)
         ->assertDontSee('employee@example.test')
@@ -189,6 +201,7 @@ it('shows only accepted payment details on a private uncached superadmin page', 
         ->assertDontSee('DE89370400440532013000');
 
     expect($acceptedRequest->fresh()->status)->toBe(CharityRequestStatus::Accepted)
+        ->and($secondAcceptedRequest->fresh()->status)->toBe(CharityRequestStatus::Accepted)
         ->and($exportedRequest->fresh()->status)->toBe(CharityRequestStatus::Exported);
 });
 
