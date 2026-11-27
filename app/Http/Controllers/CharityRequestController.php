@@ -71,6 +71,15 @@ class CharityRequestController extends Controller
             ->orderBy('created_at')
             ->paginate(15);
 
+        $acceptedRequestCount = $requests->total();
+
+        // Encrypted IBANs can only be checked for presence in this query.
+        $requestsWithRecipientDetailsCount = (clone $acceptedRequests)
+            ->whereNotNull('account_name')
+            ->whereRaw("TRIM(account_name) <> ''")
+            ->whereNotNull('iban')
+            ->count();
+
         $acceptedTotal = (clone $acceptedRequests)
             ->join('charity_event_costs', 'charity_requests.charity_event_cost_id', '=', 'charity_event_costs.id')
             ->sum('charity_event_costs.amount');
@@ -78,6 +87,9 @@ class CharityRequestController extends Controller
         return response()
             ->view('charity.requests.payment-overview', [
                 'requests' => $requests,
+                'acceptedRequestCount' => $acceptedRequestCount,
+                'requestsWithRecipientDetailsCount' => $requestsWithRecipientDetailsCount,
+                'requestsMissingRecipientDetailsCount' => $acceptedRequestCount - $requestsWithRecipientDetailsCount,
                 'acceptedTotal' => $acceptedTotal,
                 'hasPaymentDebtorDetails' => $request->session()->has(
                     CharitySessionService::PAYMENT_DEBTOR_SESSION_KEY
